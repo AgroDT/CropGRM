@@ -1,0 +1,7 @@
+catboost==1.2.8
+folium==0.20.0
+geopandas==1.0.1
+mapclassify==2.10.0
+pandas==2.2.3
+pyarrow==22.0.0
+rasterio==1.4.3
