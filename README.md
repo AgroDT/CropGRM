@@ -44,6 +44,12 @@ Feature lists are in [notebooks/inference_tabular.ipynb](./notebooks/inference_t
 
 Examples and instructions are available in [notebooks](./notebooks):
 
+- [gee_downloading.ipynb](./notebooks/gee_downloading.ipynb) - instructions
+  and examples for downloading spectral and meteorological data
+  from Google Earth Engine Platform
+- [feature_calculation.ipynb](./notebooks/feature_calculation.ipynb) - instructions
+  and examples for calculating spectral, phenological and meteorological feature
+  for model input
 - [inference_tabular.ipynb](./notebooks/inference_tabular.ipynb) - instructions
   and examples for making tabular predictions including feature lists for
   different models
@@ -54,8 +60,12 @@ Tested on Python 3.12.
 
 ## Input data
 
-- Vector dataset with field geometries, (example available at
-  [data/raw/fields.fgb](./data/raw/fields.fgb)).
+- Vector dataset with field geometries (example available at
+  [data/raw/fields.fgb](./data/raw/fields.fgb))
+- Meteorological data (ERA5) downloaded from Google Earth Engine (example
+  available at [data/raw/fields_meteo_data.csv](./data/raw/fields_meteo_data.csv))
+- Spectral data (Landsat 5, 8, 9) downloaded from Google Earth Engine (example
+  available at [data/raw/fields_spectral_data.csv](./data/raw/fields_spectral_data.csv))
 - Preprocessed feature dataset from Google Earth Engine for each field (example
   available at [data/processed/input_data_for_model.parquet](./data/processed/input_data_for_model.parquet))
 
