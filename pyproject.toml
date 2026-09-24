@@ -1,0 +1,55 @@
+[project]
+name = "cropgrm"
+version = "0.1.0"
+description = "CropGRM is a general model for crop spatial recognition based on time series of remote sensing and climate data. It can predict 12 crop types globally."
+authors = [
+    {name = "AgroDT"}
+]
+license = "CC-BY-4.0"
+readme = "README.md"
+
+requires-python = ">=3.12"
+dependencies = [
+    "catboost (==1.2.10)",
+    "earthengine-api (==1.7.36)",
+    "geedim (>=2.0.0)",
+    "geemap (==0.38.3)",
+    "geopandas (==1.0.1)",
+    "joblib (==1.4.2)",
+    "matplotlib (==3.11.1)",
+    "numpy (==2.5.1)",
+    "pandas (==3.0.5)",
+    "polars (>=1.43.2,<2.0.0)",
+    "pyarrow (==19.0.0)",
+    "pycrs (==1.0.2)",
+    "pyproj (==3.7.1)",
+    "rasterio (>=1.4.3,<2.0.0)",
+    "rioxarray (==0.23.0)",
+    "scipy (==1.18.0)",
+    "sympy (==1.13.1)",
+    "xarray (==2026.4.0)",
+]
+
+
+[dependency-groups]
+dev = [
+    "ipykernel>=7.3.0,<8.0.0",
+    "jupyter>=1.1.1,<2.0.0",
+    "pytest>=8,<10",
+    "ruff>=0.13,<1",
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]
+
+[build-system]
+requires = ["uv_build>=0.12.17,<0.13"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "crop_classifier"
+module-root = "src"

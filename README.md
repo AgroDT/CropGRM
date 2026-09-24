@@ -32,27 +32,23 @@ CropGRM
 The project includes three base models with different numbers of predictors and
 a fine-tuned model (available in [models](./models)):
 
-- [CropGRM-large.cbm](./models/CropGRM-large.cbm) - 134 features
-- [CropGRM-optimized.cbm](./models/CropGRM-optimized.cbm) - 82 features
-- [CropGRM-small.cbm](./models/CropGRM-small.cbm) - 24 features
-- [finetuned_model.cbm](./models/finetuned_model.cbm) - fine-tuned
+- [CropGRM-large.cbm](./src/crop_classifier/CropGRM-large.cbm) - 134 features
+- [CropGRM-optimized.cbm](./src/crop_classifier/models/CropGRM-optimized.cbm) - 82 features
+- [CropGRM-small.cbm](./src/crop_classifier/models/CropGRM-small.cbm) - 24 features
+- [finetuned_model.cbm](./src/crop_classifier/models/finetuned_model.cbm) - fine-tuned
   CropGRM-small on local scientific center data
 
-Feature lists are in [notebooks/inference_tabular.ipynb](./notebooks/inference_tabular.ipynb).
 
 ## Examples
 
 Examples and instructions are available in [notebooks](./notebooks):
 
-- [gee_downloading.ipynb](./notebooks/gee_downloading.ipynb) - instructions
-  and examples for downloading spectral and meteorological data
-  from Google Earth Engine Platform
-- [feature_calculation.ipynb](./notebooks/feature_calculation.ipynb) - instructions
-  and examples for calculating spectral, phenological and meteorological feature
-  for model input
-- [inference_tabular.ipynb](./notebooks/inference_tabular.ipynb) - instructions
-  and examples for making tabular predictions including feature lists for
-  different models
+- [inference_tutorial.ipynb](./notebooks/inference_tutorial.ipynb) - instructions
+  and examples for making field-based an pixel-based predictions
+
+- [model_experimentation.ipynb](./notebooks/model_experimentation.ipynb) - 
+  example for model comparison
+
 - [inference_geospatial.ipynb](./notebooks/inference_geospatial.ipynb) -
   instructions and examples for making geospatial predictions
 
