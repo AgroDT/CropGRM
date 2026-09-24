@@ -6,7 +6,7 @@ import pandas as pd
 from catboost import CatBoostClassifier
 
 from crop_classifier.config import DEFAULT_MODEL_PATHS, ModelType
-
+from crop_classifier.config import CLASS_NAMES
 
 class CropPredictor:
     """Downlowding and inference CatBoost model."""
@@ -42,5 +42,7 @@ class CropPredictor:
         df_result["class"] = np.where(
             max_probabilities > threshold, predicted_classes, np.nan
         )
+        df_result["class"] = df_result["class"].fillna(0).astype(int)
+        df_result["class_name"] = df_result["class"].map(CLASS_NAMES)
 
         return df_result

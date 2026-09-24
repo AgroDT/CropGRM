@@ -129,7 +129,7 @@ class SpectralFeatureCalculator():
         if len(group_df) == 0:
             return None
         x = group_df["DOY"].to_numpy().astype(float)
-        y = precomputed_values if precomputed_values is not None else hampel(group_df[index].to_numpy().astype(float), 3)
+        y = precomputed_values if precomputed_values is not None else hampel_filter(group_df[index].to_numpy().astype(float), 3)
     
         result = {'field_id': group_df['field_id'][0]}
         result[f'{index}_min'] = float(np.min(y))

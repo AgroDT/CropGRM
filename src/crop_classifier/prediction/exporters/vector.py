@@ -21,9 +21,7 @@ class VectorExporter(BaseExporter):
 
         gdf = (
             gpd.read_file(fields_geometry_path)
-            .merge(df[["field_id", "class"]], on="field_id", how="left")
+            .merge(df[["field_id", "class", "class_name"]], on="field_id", how="left")
         )
-        gdf["class"] = gdf["class"].fillna(0).astype(int)
-        gdf["class_name"] = gdf["class"].map(class_names)
-
-        gdf[["field_id", "class_name", "geometry"]].to_file(f'{output_prefix}.fbg', encoding="utf8")
+        
+        gdf[["field_id", "class_name", "geometry"]].to_file(f'{output_prefix}.fgb', encoding="utf8")

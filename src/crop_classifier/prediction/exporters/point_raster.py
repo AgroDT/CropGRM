@@ -17,9 +17,10 @@ class PointRasterExporter(BaseExporter):
         df: pd.DataFrame,
         output_prefix: str,
         epsg_code: str = "EPSG:32637",
+        pixel_size: int = 30,
         **kwargs
     ) -> None:
-        pixel_size = 30
+        
         min_lon, min_lat = df["lon"].min(), df["lat"].min()
         max_lon, max_lat = df["lon"].max(), df["lat"].max()
 

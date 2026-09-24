@@ -28,7 +28,7 @@ class PolygonRasterExporter(BaseExporter):
             .merge(df[["field_id", "class"]], on="field_id", how="left")
         )
         gdf["class"] = gdf["class"].fillna(0).astype(int)
-        if gdf.crs == "epsg:4326":
+        if gdf.crs.is_geographic:
             gdf = gdf.to_crs("epsg:3857")
         
         nodata = 0

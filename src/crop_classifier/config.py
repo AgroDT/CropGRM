@@ -22,9 +22,9 @@ CLASS_NAMES = {
     10: 'sorghum',
     11: 'potato',
     13: 'spring wheat',
-    14: 'winter oats',
-    15: 'winter barley',
-    16: 'winter rye'
+    # 14: 'winter oats',
+    # 15: 'winter barley',
+    # 16: 'winter rye'
 }
 
 class ModelType(str, Enum):
@@ -41,8 +41,8 @@ class OutputFormat(str, Enum):
 
 
 DEFAULT_MODEL_PATHS: Dict[ModelType, Path] = {
-    ModelType.SMALL: ROOT_DIR / "models/small_model.cbm",
-    ModelType.OPTIMIZED: ROOT_DIR / "models/optimized_model.cbm",
-    ModelType.LARGE: ROOT_DIR / "models/large_model.cbm",
-    ModelType.FINETUNED: ROOT_DIR / "models/finetuned_model.cbm",
+    ModelType.SMALL: ROOT_DIR / "models/CropGRM-small.cbm",
+    ModelType.OPTIMIZED: ROOT_DIR / "models/CropGRM-optimized.cbm",
+    ModelType.LARGE: ROOT_DIR / "models/CropGRM-large.cbm",
+    ModelType.FINETUNED: ROOT_DIR / "models/CropGRM-finetuned.cbm",
 }

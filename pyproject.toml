@@ -35,7 +35,16 @@ dependencies = [
 dev = [
     "ipykernel>=7.3.0,<8.0.0",
     "jupyter>=1.1.1,<2.0.0",
+    "pytest>=8,<10",
+    "ruff>=0.13,<1",
 ]
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]
 
 [build-system]
 requires = ["uv_build>=0.12.17,<0.13"]
