@@ -76,7 +76,7 @@ class PredictorPipeline:
             processing_id_cols = ["lat", "lon", "field_id"]
         else:
             processing_id_cols = ["field_id"]
-            
+
         for chunk_idx, i in enumerate(range(0, total_entities, self.chunk_size), 1):
             logger.info(f"Processing chunk {chunk_idx} / {total_chunks}...")
             batch_ids = common_ids[i : i + self.chunk_size]

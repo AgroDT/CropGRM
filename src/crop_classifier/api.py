@@ -120,7 +120,9 @@ class CropClassifier:
         dst_path = Path(output_path) if output_path else self.default_processed_path
 
         dst_path.parent.mkdir(parents=True, exist_ok=True)
-        PredictorPipeline().build_features(self.use_zonal_spectral, src_spectral, src_meteo, dst_path)
+        PredictorPipeline().build_features(
+            self.use_zonal_spectral, src_spectral, src_meteo, dst_path
+        )
 
         return dst_path
 
@@ -156,8 +158,8 @@ class CropClassifier:
             threshold=self.threshold,
             output_format=self.output_format,
             fields_geometry_path=fields_geometry,
-            input_epsg_code = input_epsg_code,
-            output_epsg_code = epsg_code,
+            input_epsg_code=input_epsg_code,
+            output_epsg_code=epsg_code,
         )
 
     # --- Complete Pipeline Execution ---

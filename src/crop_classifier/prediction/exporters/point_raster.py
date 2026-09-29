@@ -21,12 +21,15 @@ class PointRasterExporter(BaseExporter):
         **kwargs,
     ) -> None:
 
-        
-        if output_epsg_code and input_epsg_code!=output_epsg_code:
-            transformer = Transformer.from_crs(input_epsg_code, output_epsg_code, always_xy=True)
-            df["lon_meter"], df["lat_meter"] = transformer.transform(df["lon"], df["lat"])
+        if output_epsg_code and input_epsg_code != output_epsg_code:
+            transformer = Transformer.from_crs(
+                input_epsg_code, output_epsg_code, always_xy=True
+            )
+            df["lon_meter"], df["lat_meter"] = transformer.transform(
+                df["lon"], df["lat"]
+            )
         else:
-            df=df.rename(columns={"lon":"lon_meter", "lat":"lat_meter"})
+            df = df.rename(columns={"lon": "lon_meter", "lat": "lat_meter"})
 
         min_lon, min_lat = df["lon_meter"].min(), df["lat_meter"].min()
         max_lon, max_lat = df["lon_meter"].max(), df["lat_meter"].max()
@@ -42,7 +45,9 @@ class PointRasterExporter(BaseExporter):
         raster_array[row_indices, col_indices] = df["class"].values
 
         latitudes = np.arange(min_lat, min_lat + pixel_size * nrows, pixel_size)[:nrows]
-        longitudes = np.arange(min_lon, min_lon + pixel_size * ncols, pixel_size)[:ncols]
+        longitudes = np.arange(min_lon, min_lon + pixel_size * ncols, pixel_size)[
+            :ncols
+        ]
 
         data_array = xr.DataArray(
             raster_array,

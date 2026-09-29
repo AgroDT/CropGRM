@@ -94,40 +94,28 @@ class DataPreparer:
         """
         if "date" not in df.columns:
             raise ValueError("Parquet file should have column 'date'")
-    
+
         available_bands = [b for b in var_group if b in df.columns]
-    
+
         result_df = df.with_columns(
             [
-                pl.when(pl.col(b).is_finite())
-                .then(pl.col(b))
-                .otherwise(None)
-                .alias(b)
+                pl.when(pl.col(b).is_finite()).then(pl.col(b)).otherwise(None).alias(b)
                 for b in available_bands
             ]
         )
-    
+
         result_df = result_df.filter(
-            pl.any_horizontal(
-                [pl.col(b).is_not_null() for b in available_bands]
-            )
+            pl.any_horizontal([pl.col(b).is_not_null() for b in available_bands])
         )
-    
-        result_df = (
-            result_df
-            .group_by([*id_cols, "date"])
-            .agg(
-                [
-                    pl.col(b).drop_nulls().median().alias(b)
-                    for b in available_bands
-                ]
-            )
+
+        result_df = result_df.group_by([*id_cols, "date"]).agg(
+            [pl.col(b).drop_nulls().median().alias(b) for b in available_bands]
         )
-    
+
         result_df = self.add_doy_and_month(result_df)
-    
+
         return result_df.sort([*id_cols, "DOY"])
-        
+
     def prepare_data_chunk(
         self, df: pl.DataFrame, var_group: List[str], id_cols: List[str]
     ) -> pl.DataFrame:

@@ -12,7 +12,9 @@ class ExporterFactory:
     """Choosing export strategy."""
 
     @staticmethod
-    def get_exporter(output_format: OutputFormat, use_zonal_spectral: bool, df: pd.DataFrame) -> BaseExporter:
+    def get_exporter(
+        output_format: OutputFormat, use_zonal_spectral: bool, df: pd.DataFrame
+    ) -> BaseExporter:
         if output_format == OutputFormat.TABLE:
             return TableExporter()
 

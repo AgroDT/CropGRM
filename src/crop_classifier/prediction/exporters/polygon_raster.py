@@ -33,8 +33,8 @@ class PolygonRasterExporter(BaseExporter):
             df[["field_id", "class"]], on="field_id", how="left"
         )
         gdf["class"] = gdf["class"].fillna(0).astype(int)
-        
-        if output_epsg_code and gdf.crs!=output_epsg_code:
+
+        if output_epsg_code and gdf.crs != output_epsg_code:
             gdf = gdf.to_crs(output_epsg_code)
 
         xmin, ymin, xmax, ymax = gdf.total_bounds
