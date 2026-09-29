@@ -31,7 +31,9 @@ class FeatureCalculatorTests(unittest.TestCase):
             }
         )
 
-        result = MeteoFeatureCalculator().calculate_meteo_features(data).row(0, named=True)
+        result = (
+            MeteoFeatureCalculator().calculate_meteo_features(data).row(0, named=True)
+        )
 
         self.assertEqual(result["field_id"], "7")
         self.assertAlmostEqual(result["median_t_4"], 285.0)

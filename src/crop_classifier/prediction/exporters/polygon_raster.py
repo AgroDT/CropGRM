@@ -19,26 +19,29 @@ class PolygonRasterExporter(BaseExporter):
         df: pd.DataFrame,
         output_prefix: str,
         fields_geometry_path: Union[str, Path] = None,
-        **kwargs
+        **kwargs,
     ) -> None:
         if not fields_geometry_path:
-            raise ValueError("For polygon rasterization 'fields_geometry_path' required.")
+            raise ValueError(
+                "For polygon rasterization 'fields_geometry_path' required."
+            )
 
-        gdf = (
-            gpd.read_file(fields_geometry_path)
-            .merge(df[["field_id", "class"]], on="field_id", how="left")
+        gdf = gpd.read_file(fields_geometry_path).merge(
+            df[["field_id", "class"]], on="field_id", how="left"
         )
         gdf["class"] = gdf["class"].fillna(0).astype(int)
         if gdf.crs.is_geographic:
             gdf = gdf.to_crs("epsg:3857")
-        
+
         nodata = 0
         pixel_size = 30
         xmin, ymin, xmax, ymax = gdf.total_bounds
         width = int((xmax - xmin) / pixel_size)
         height = int((ymax - ymin) / pixel_size)
 
-        transform = from_origin(west=xmin, north=ymax, xsize=pixel_size, ysize=pixel_size)
+        transform = from_origin(
+            west=xmin, north=ymax, xsize=pixel_size, ysize=pixel_size
+        )
         shapes = ((geom, value) for geom, value in zip(gdf.geometry, gdf["class"]))
         raster = rasterize(
             shapes=shapes,
@@ -50,13 +53,10 @@ class PolygonRasterExporter(BaseExporter):
         )
 
         cmap = plt.get_cmap("tab20")
-        colormap = {
-            i: tuple(int(c * 255) for c in cmap(i)[:3])
-            for i in range(cmap.N)
-        }
+        colormap = {i: tuple(int(c * 255) for c in cmap(i)[:3]) for i in range(cmap.N)}
 
         with rasterio.open(
-            f'{output_prefix}.tif',
+            f"{output_prefix}.tif",
             "w",
             driver="GTiff",
             height=height,

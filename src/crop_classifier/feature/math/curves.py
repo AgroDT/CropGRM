@@ -10,7 +10,8 @@ def double_logistic_function(t, wNDVI, mNDVI, S, A, mS, mA):
     seasonal_term = sigmoid1 + sigmoid2 - 1
     return wNDVI + (mNDVI - wNDVI) * seasonal_term
 
-def fit_curve( t, ndvi_observed, bounds):
+
+def fit_curve(t, ndvi_observed, bounds):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", category=OptimizeWarning)
         warnings.simplefilter("ignore", category=RuntimeWarning)
@@ -28,14 +29,15 @@ def fit_curve( t, ndvi_observed, bounds):
         except Exception:
             return None
 
+
 @staticmethod
 def sort_extrema_points(extrema_points_x, doy_max):
     less_than_doy_max = [x for x in extrema_points_x if x < doy_max]
     greater_than_doy_max = [x for x in extrema_points_x if x > doy_max]
 
     return {
-        'start_of_growth': min(less_than_doy_max) if less_than_doy_max else None,
-        'end_of_growth': max(less_than_doy_max) if less_than_doy_max else None,
-        'start_of_decay': min(greater_than_doy_max) if greater_than_doy_max else None,
-        'end_of_decay': max(greater_than_doy_max) if greater_than_doy_max else None
+        "start_of_growth": min(less_than_doy_max) if less_than_doy_max else None,
+        "end_of_growth": max(less_than_doy_max) if less_than_doy_max else None,
+        "start_of_decay": min(greater_than_doy_max) if greater_than_doy_max else None,
+        "end_of_decay": max(greater_than_doy_max) if greater_than_doy_max else None,
     }

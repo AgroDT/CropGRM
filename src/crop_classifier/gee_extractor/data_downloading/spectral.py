@@ -14,7 +14,8 @@ class SpectralExtractor(_BaseGEEExtractor):
         image = ee.Image(image)
         qa = image.select("QA_PIXEL")
         mask = (
-            qa.bitwiseAnd(1 << 1).eq(0)
+            qa.bitwiseAnd(1 << 1)
+            .eq(0)
             .And(qa.bitwiseAnd(1 << 4).eq(0))
             .And(qa.bitwiseAnd(1 << 3).eq(0))
         )
@@ -36,7 +37,9 @@ class SpectralExtractor(_BaseGEEExtractor):
         slopes = ee.Image.constant([1.0946, 1.0043, 1.0529, 1.0045, 1.0001, 1.0006])
         offsets = ee.Image.constant([0.0004, 0.0041, 0.0011, 0.0019, 0.0039, 0.0016])
         return ee.Image(
-            bands.multiply(slopes).add(offsets).copyProperties(image, ["system:time_start"])
+            bands.multiply(slopes)
+            .add(offsets)
+            .copyProperties(image, ["system:time_start"])
         )
 
     @staticmethod

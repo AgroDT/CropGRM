@@ -15,9 +15,9 @@ class PointRasterExporter(BaseExporter):
         output_prefix: str,
         epsg_code: str = "EPSG:32637",
         pixel_size: int = 30,
-        **kwargs
+        **kwargs,
     ) -> None:
-        
+
         min_lon, min_lat = df["lon"].min(), df["lat"].min()
         max_lon, max_lat = df["lon"].max(), df["lat"].max()
 
@@ -32,7 +32,9 @@ class PointRasterExporter(BaseExporter):
         raster_array[row_indices, col_indices] = df["class"].values
 
         latitudes = np.arange(min_lat, min_lat + pixel_size * nrows, pixel_size)[:nrows]
-        longitudes = np.arange(min_lon, min_lon + pixel_size * ncols, pixel_size)[:ncols]
+        longitudes = np.arange(min_lon, min_lon + pixel_size * ncols, pixel_size)[
+            :ncols
+        ]
 
         data_array = xr.DataArray(
             raster_array,
@@ -44,4 +46,4 @@ class PointRasterExporter(BaseExporter):
         )
 
         data_array = data_array.rio.write_crs(epsg_code)
-        data_array.rio.to_raster(f'{output_prefix}.tif')
+        data_array.rio.to_raster(f"{output_prefix}.tif")

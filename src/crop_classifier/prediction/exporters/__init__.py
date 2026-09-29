@@ -27,6 +27,8 @@ class ExporterFactory:
             elif "lat" in df.columns and "lon" in df.columns:
                 return PointRasterExporter()
             else:
-                raise ValueError("For ratser export columns 'field_id' or 'lat'/'lon' are required.")
+                raise ValueError(
+                    "For ratser export columns 'field_id' or 'lat'/'lon' are required."
+                )
 
         raise ValueError(f"Unsupported export format: {output_format}")

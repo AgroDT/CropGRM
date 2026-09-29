@@ -64,7 +64,9 @@ class CropClassifier:
     def default_spectral_path(self) -> Path:
         """Get default path for downloaded raw spectral data."""
         return (
-            self.output_dir / "raw" / f"{self.input_file.stem}_spectral.{self._file_ext}"
+            self.output_dir
+            / "raw"
+            / f"{self.input_file.stem}_spectral.{self._file_ext}"
         )
 
     @property
@@ -77,16 +79,12 @@ class CropClassifier:
     @property
     def default_processed_path(self) -> Path:
         """Get default path for engineered feature dataset."""
-        return (
-            self.output_dir / "processed" / f"{self.input_file.stem}_input.parquet"
-        )
+        return self.output_dir / "processed" / f"{self.input_file.stem}_input.parquet"
 
     @property
     def default_prediction_prefix(self) -> Path:
         """Get default prefix for prediction output files."""
-        return (
-            self.output_dir / "final" / f"{self.input_file.stem}"
-        )
+        return self.output_dir / "final" / f"{self.input_file.stem}"
 
     # --- Pipeline Steps ---
 
@@ -123,7 +121,7 @@ class CropClassifier:
 
         dst_path.parent.mkdir(parents=True, exist_ok=True)
         PredictorPipeline().build_features(src_spectral, src_meteo, dst_path)
-        
+
         return dst_path
 
     def predict(

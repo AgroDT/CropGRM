@@ -24,7 +24,7 @@ class CropClassifierPipeline:
         fields_geometry_path: Optional[Union[str, Path]] = None,
         epsg_code: str = "EPSG:32637",
     ) -> None:
-        
+
         if isinstance(input_data, (str, Path)):
             df = pd.read_parquet(input_data)
         else:

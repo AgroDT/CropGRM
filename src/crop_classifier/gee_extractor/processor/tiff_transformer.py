@@ -19,6 +19,7 @@ class TiffTransformator:
     """
     Transform tiff timeseries from GEE to .parquet file suitable for analysis
     """
+
     def __init__(self, folder: Path | str):
         self.basic_indices = BASIC_INDICES
         self.meteo_bands = METEO_INDICES
@@ -30,7 +31,7 @@ class TiffTransformator:
         width: int,
         transform: rasterio.transform.Affine,
         src_crs: Optional[CRS],
-        target_crs: str = "EPSG:4326"
+        target_crs: str = "EPSG:4326",
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """
         Vector coordinate calculation:
@@ -50,7 +51,9 @@ class TiffTransformator:
 
         return rows_flat, cols_flat, np.array(lons), np.array(lats)
 
-    def process_raster_series(self, output_parquet_path: str | Path, shp_name: str, data_type: str) -> None:
+    def process_raster_series(
+        self, output_parquet_path: str | Path, shp_name: str, data_type: str
+    ) -> None:
         files = sorted(list(self.folder.glob(f"{shp_name}*.tif")))
 
         if data_type == DATA_TYPE_SPECTRAL:
@@ -70,9 +73,9 @@ class TiffTransformator:
         try:
             for file_path in files:
                 # logger.info(f'Processing {file_path.name}...')
-                date_str = file_path.stem.split('_')[-1]
+                date_str = file_path.stem.split("_")[-1]
 
-                with rasterio.open(file_path, 'r') as ds:
+                with rasterio.open(file_path, "r") as ds:
                     height, width = ds.height, ds.width
                     num_pixels = height * width
 
@@ -84,9 +87,9 @@ class TiffTransformator:
                     bands_flat = bands_data.reshape(len(band_names), -1).T
 
                     data_dict = {
-                        'date': np.full(num_pixels, date_str),
-                        'lon': lons.astype(np.float64),
-                        'lat': lats.astype(np.float64),
+                        "date": np.full(num_pixels, date_str),
+                        "lon": lons.astype(np.float64),
+                        "lat": lats.astype(np.float64),
                     }
 
                     for i, b_name in enumerate(band_names):
@@ -95,10 +98,7 @@ class TiffTransformator:
                     arrow_table = pa.Table.from_pydict(data_dict)
 
                     if writer is None:
-                        writer = pq.ParquetWriter(
-                            output_path,
-                            arrow_table.schema
-                        )
+                        writer = pq.ParquetWriter(output_path, arrow_table.schema)
 
                     writer.write_table(arrow_table)
 
@@ -107,4 +107,4 @@ class TiffTransformator:
         finally:
             if writer:
                 writer.close()
-                logger.info(f'Data saved to {output_path}')
+                logger.info(f"Data saved to {output_path}")

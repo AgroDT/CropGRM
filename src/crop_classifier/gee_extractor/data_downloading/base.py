@@ -5,6 +5,7 @@ import ee
 
 logger = logging.getLogger(__name__)
 
+
 class _BaseGEEExtractor:
     _is_initialized = False
 

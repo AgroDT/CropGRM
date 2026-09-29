@@ -49,31 +49,41 @@ class GEEDownloadingDataPipeline:
         gdf = gpd.read_file(shapefile_path)
         shape_ee = geemap.shp_to_ee(shapefile_path)
 
-        meteo_out_path = self.output_dir / f'{Path(shapefile_path).stem}_meteo'
-        spectral_out_path = self.output_dir / f'{Path(shapefile_path).stem}_spectral'
+        meteo_out_path = self.output_dir / f"{Path(shapefile_path).stem}_meteo"
+        spectral_out_path = self.output_dir / f"{Path(shapefile_path).stem}_spectral"
 
         if self.use_zonal_spectral:
-            self._fetch_spectral_stats(shape_ee, f'{spectral_out_path}.csv')
-            self._fetch_meteo_stats(shape_ee, f'{meteo_out_path}.csv')
+            self._fetch_spectral_stats(shape_ee, f"{spectral_out_path}.csv")
+            self._fetch_meteo_stats(shape_ee, f"{meteo_out_path}.csv")
         else:
             combined_geom = shape_ee.geometry() if len(gdf) > 1 else shape_ee.geometry()
 
             spectral_dir = self.output_dir / "spectral_timeseries"
             meteo_dir = self.output_dir / "meteo_timeseries"
 
-            self._export_spectral_time_series(combined_geom, Path(shapefile_path).stem, spectral_dir)
-            self._export_meteo_time_series(combined_geom, Path(shapefile_path).stem, meteo_dir)
+            self._export_spectral_time_series(
+                combined_geom, Path(shapefile_path).stem, spectral_dir
+            )
+            self._export_meteo_time_series(
+                combined_geom, Path(shapefile_path).stem, meteo_dir
+            )
 
             TiffTransformator(spectral_dir).process_raster_series(
-                f'{spectral_out_path}.parquet', Path(shapefile_path).stem, data_type=DATA_TYPE_SPECTRAL
+                f"{spectral_out_path}.parquet",
+                Path(shapefile_path).stem,
+                data_type=DATA_TYPE_SPECTRAL,
             )
             TiffTransformator(meteo_dir).process_raster_series(
-                f'{meteo_out_path}.parquet', Path(shapefile_path).stem, data_type=DATA_TYPE_METEO
+                f"{meteo_out_path}.parquet",
+                Path(shapefile_path).stem,
+                data_type=DATA_TYPE_METEO,
             )
 
         logger.info("Downloading completed successfully.")
 
-    def _fetch_spectral_stats(self, shape_ee: ee.FeatureCollection, output_csv: Path) -> None:
+    def _fetch_spectral_stats(
+        self, shape_ee: ee.FeatureCollection, output_csv: Path
+    ) -> None:
         collection = self.spectral.get_time_series_collection(
             geometry=shape_ee.geometry(),
             start_date=self.start_date,
@@ -109,7 +119,9 @@ class GEEDownloadingDataPipeline:
         export_dir.mkdir(parents=True, exist_ok=True)
 
         for i, ts in enumerate(timestamps):
-            date_str = datetime.fromtimestamp(ts / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
+            date_str = datetime.fromtimestamp(ts / 1000, tz=timezone.utc).strftime(
+                "%Y-%m-%d"
+            )
             tile = 0
             while True:
                 ts_filename = export_dir / f"{base_name}_tile_{tile}_{date_str}.tif"
@@ -122,7 +134,9 @@ class GEEDownloadingDataPipeline:
 
         logger.info(f"Exported {count} spectral GeoTIFF scenes.")
 
-    def _fetch_meteo_stats(self, shape_ee: ee.FeatureCollection, output_csv: Path) -> None:
+    def _fetch_meteo_stats(
+        self, shape_ee: ee.FeatureCollection, output_csv: Path
+    ) -> None:
         collection = self.meteo.get_collection(
             geometry=shape_ee.geometry(),
             start_date=self.start_date,
@@ -154,7 +168,9 @@ class GEEDownloadingDataPipeline:
         export_dir.mkdir(parents=True, exist_ok=True)
 
         for i, ts in enumerate(timestamps):
-            date_str = datetime.fromtimestamp(ts / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
+            date_str = datetime.fromtimestamp(ts / 1000, tz=timezone.utc).strftime(
+                "%Y-%m-%d"
+            )
             tile = 0
             while True:
                 ts_filename = export_dir / f"{base_name}_tile_{tile}_{date_str}.tif"

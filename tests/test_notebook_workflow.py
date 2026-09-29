@@ -24,7 +24,9 @@ class NotebookWorkflowTests(unittest.TestCase):
                 output_format=OutputFormat.TABLE,
             )
 
-            with patch("crop_classifier.feature.processors.spectral_calculator.N_JOBS", 1):
+            with patch(
+                "crop_classifier.feature.processors.spectral_calculator.N_JOBS", 1
+            ):
                 feature_path = classifier.build_features(
                     spectral_path=PROJECT_ROOT / "data/raw/fields_spectral.csv",
                     meteo_path=PROJECT_ROOT / "data/raw/fields_meteo.csv",
@@ -36,7 +38,9 @@ class NotebookWorkflowTests(unittest.TestCase):
             for model_type in ModelType:
                 with self.subTest(model=model_type.value):
                     model = CropPredictor().load_model(model_type)
-                    self.assertTrue(set(model.feature_names_).issubset(features.columns))
+                    self.assertTrue(
+                        set(model.feature_names_).issubset(features.columns)
+                    )
 
             classifier.predict(processed_path=feature_path)
             prediction_path = output_dir / "final/fields.csv"

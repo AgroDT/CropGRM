@@ -21,6 +21,8 @@ class RasterExporter(_BaseGEEExtractor):
             import geedim  # noqa
         except ImportError:
             raise ImportError("Install geedim: pip install geedim")
-        prep = image.gd.prepareForExport(crs=crs, scale=scale, region=region, dtype=dtype)
+        prep = image.gd.prepareForExport(
+            crs=crs, scale=scale, region=region, dtype=dtype
+        )
         prep.gd.toGeoTIFF(str(output_path))
         return output_path
