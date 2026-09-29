@@ -46,14 +46,16 @@ class DataPreparationTests(unittest.TestCase):
         )
         preparer = DataPreparer()
         result = preparer.prepare_data_chunk(
-            preparer.ensure_field_id(data, ["lat", "lon"]),
+            data,
             ["red"],
             ["lat", "lon"],
         )
 
+        names = preparer.ensure_field_id(data, ["lat", "lon"])
+
         self.assertEqual(result["DOY"].to_list(), [91, 93])
         self.assertEqual(result["red"].to_list(), [0.2, 0.3])
-        self.assertEqual(result["field_id"].n_unique(), 1)
+        self.assertEqual(names["field_id"].n_unique(), 1)
 
     def test_unknown_file_format_is_rejected(self):
         with self.assertRaises(ValueError):

@@ -37,7 +37,7 @@ class FeatureCalculatorTests(unittest.TestCase):
 
         self.assertEqual(result["field_id"], "7")
         self.assertAlmostEqual(result["median_t_4"], 285.0)
-        self.assertAlmostEqual(result["sum_t_4"], 290.0)
+        self.assertAlmostEqual(result["sum_t_4"], 570.0)
         self.assertAlmostEqual(result["median_prec_4"], 0.002)
         self.assertAlmostEqual(result["sum_prec_4"], 0.004)
         self.assertAlmostEqual(result["sum_t_5"], 285.0)
