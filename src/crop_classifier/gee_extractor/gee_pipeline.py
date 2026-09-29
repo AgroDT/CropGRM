@@ -8,12 +8,12 @@ import geemap
 import geopandas as gpd
 
 from crop_classifier.gee_extractor import (
-     MeteoExtractor,
-     RasterExporter,
-     SpectralExtractor,
-     TiffTransformator,
+    MeteoExtractor,
+    RasterExporter,
+    SpectralExtractor,
+    TiffTransformator,
 )
-from crop_classifier.gee_extractor.constants import DATA_TYPE_SPECTRAL, DATA_TYPE_METEO
+from crop_classifier.gee_extractor.constants import DATA_TYPE_METEO, DATA_TYPE_SPECTRAL
 
 logger = logging.getLogger(__name__)
 

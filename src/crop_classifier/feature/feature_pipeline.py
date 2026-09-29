@@ -13,7 +13,6 @@ from crop_classifier.feature import (
     SpectralFeatureCalculator,
 )
 
-
 logger = logging.getLogger(__name__)
 
 class PredictorPipeline:

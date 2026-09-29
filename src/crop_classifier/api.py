@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Union, Optional
+from typing import Optional, Union
 
 from crop_classifier import ModelType, OutputFormat
 from crop_classifier.feature.feature_pipeline import PredictorPipeline
