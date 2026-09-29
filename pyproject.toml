@@ -33,8 +33,10 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "folium>=0.20.0",
     "ipykernel>=7.3.0,<8.0.0",
     "jupyter>=1.1.1,<2.0.0",
+    "mapclassify>=2.11.0",
     "ruff>=0.13,<1",
 ]
 

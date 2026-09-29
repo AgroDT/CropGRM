@@ -18,11 +18,13 @@ class CropClassifierPipeline:
         self,
         input_data: Union[str, Path, pd.DataFrame],
         output_prefix: str,
+        use_zonal_spectral: bool,
         model_type: Union[ModelType, str] = ModelType.FINETUNED,
         threshold: float = 0.5,
         output_format: Union[OutputFormat, str] = OutputFormat.TABLE,
         fields_geometry_path: Optional[Union[str, Path]] = None,
-        epsg_code: str = "EPSG:32637",
+        input_epsg_code: Optional[str] = "EPSG:4326",
+        output_epsg_code: Optional[str] = None,
     ) -> None:
 
         if isinstance(input_data, (str, Path)):
@@ -37,12 +39,13 @@ class CropClassifierPipeline:
         )
 
         fmt = OutputFormat(output_format)
-        exporter = ExporterFactory.get_exporter(fmt, df_predicted)
+        exporter = ExporterFactory.get_exporter(fmt, use_zonal_spectral, df_predicted)
 
         exporter.export(
             df=df_predicted,
             output_prefix=output_prefix,
             fields_geometry_path=fields_geometry_path,
             class_names=CLASS_NAMES,
-            epsg_code=epsg_code,
+            input_epsg_code=input_epsg_code,
+            output_epsg_code=output_epsg_code,
         )

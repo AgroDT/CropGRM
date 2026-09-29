@@ -12,7 +12,7 @@ class ExporterFactory:
     """Choosing export strategy."""
 
     @staticmethod
-    def get_exporter(output_format: OutputFormat, df: pd.DataFrame) -> BaseExporter:
+    def get_exporter(output_format: OutputFormat, use_zonal_spectral: bool, df: pd.DataFrame) -> BaseExporter:
         if output_format == OutputFormat.TABLE:
             return TableExporter()
 
@@ -22,13 +22,9 @@ class ExporterFactory:
             return VectorExporter()
 
         if output_format == OutputFormat.RASTER:
-            if "field_id" in df.columns:
+            if use_zonal_spectral:
                 return PolygonRasterExporter()
-            elif "lat" in df.columns and "lon" in df.columns:
+            elif not use_zonal_spectral:
                 return PointRasterExporter()
-            else:
-                raise ValueError(
-                    "For ratser export columns 'field_id' or 'lat'/'lon' are required."
-                )
 
         raise ValueError(f"Unsupported export format: {output_format}")

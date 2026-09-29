@@ -19,6 +19,9 @@ class PolygonRasterExporter(BaseExporter):
         df: pd.DataFrame,
         output_prefix: str,
         fields_geometry_path: Union[str, Path] = None,
+        output_epsg_code: str = None,
+        pixel_size: int = 30,
+        nodata: int = -9999,
         **kwargs,
     ) -> None:
         if not fields_geometry_path:
@@ -30,11 +33,10 @@ class PolygonRasterExporter(BaseExporter):
             df[["field_id", "class"]], on="field_id", how="left"
         )
         gdf["class"] = gdf["class"].fillna(0).astype(int)
-        if gdf.crs.is_geographic:
-            gdf = gdf.to_crs("epsg:3857")
+        
+        if output_epsg_code and gdf.crs!=output_epsg_code:
+            gdf = gdf.to_crs(output_epsg_code)
 
-        nodata = 0
-        pixel_size = 30
         xmin, ymin, xmax, ymax = gdf.total_bounds
         width = int((xmax - xmin) / pixel_size)
         height = int((ymax - ymin) / pixel_size)
@@ -48,12 +50,17 @@ class PolygonRasterExporter(BaseExporter):
             out_shape=(height, width),
             fill=nodata,
             transform=transform,
-            dtype="uint8",
+            dtype="int16",
             all_touched=True,
         )
 
         cmap = plt.get_cmap("tab20")
-        colormap = {i: tuple(int(c * 255) for c in cmap(i)[:3]) for i in range(cmap.N)}
+        classes = sorted(gdf["class"].unique())
+
+        colormap = {
+            int(cls): tuple(int(c * 255) for c in cmap(i)[:3])
+            for i, cls in enumerate(classes)
+        }
 
         with rasterio.open(
             f"{output_prefix}.tif",

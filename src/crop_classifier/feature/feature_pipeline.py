@@ -30,6 +30,7 @@ class PredictorPipeline:
 
     def build_features(
         self,
+        use_zonal_spectral,
         spectral_path: Union[str, Path],
         meteo_path: Union[str, Path],
         output_file: Union[str, Path],
@@ -42,10 +43,10 @@ class PredictorPipeline:
         spectral_path = Path(spectral_path)
         meteo_path = Path(meteo_path)
 
-        if spectral_path.suffix == ".parquet":
-            id_cols = ["lat", "lon"]
-        else:
+        if use_zonal_spectral:
             id_cols = ["field_id"]
+        else:
+            id_cols = ["lat", "lon"]
 
         logger.info(f"Reading dataset with spatial keys: {id_cols}...")
 
@@ -71,6 +72,11 @@ class PredictorPipeline:
         chunk_results = []
         total_chunks = (total_entities + self.chunk_size - 1) // self.chunk_size
 
+        if not use_zonal_spectral:
+            processing_id_cols = ["lat", "lon", "field_id"]
+        else:
+            processing_id_cols = ["field_id"]
+            
         for chunk_idx, i in enumerate(range(0, total_entities, self.chunk_size), 1):
             logger.info(f"Processing chunk {chunk_idx} / {total_chunks}...")
             batch_ids = common_ids[i : i + self.chunk_size]
@@ -81,10 +87,10 @@ class PredictorPipeline:
             meteo_df = lazy_meteo.filter(pl.col("field_id").is_in(batch_ids)).collect()
 
             prepared_spectral = self.preparer.prepare_data_chunk(
-                spec_df, self.basic_indices, id_cols
+                spec_df, self.basic_indices, processing_id_cols
             )
             prepared_meteo = self.preparer.prepare_data_chunk(
-                meteo_df, self.meteo_bands, id_cols
+                meteo_df, self.meteo_bands, processing_id_cols
             )
 
             spectral_features = self.spectral_extractor.calculate_spectral_features(

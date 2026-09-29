@@ -7,7 +7,7 @@ class MeteoFeatureCalculator:
         df,
     ) -> pl.DataFrame:
 
-        condition = df["temperature"] > 283
+        condition = df["temperature"] > 10
 
         com_calculated = df.group_by(["field_id", "month"]).agg(
             [

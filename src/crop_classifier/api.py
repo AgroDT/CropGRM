@@ -26,7 +26,7 @@ class CropClassifier:
         model_type: Union[ModelType, str] = ModelType.FINETUNED,
         threshold: float = 0.5,
         output_format: Union[OutputFormat, str] = OutputFormat.TABLE,
-        epsg_code: str = "EPSG:32637",
+        epsg_code: Optional[str] = None,
     ):
         """Initialize the CropClassifier pipeline.
 
@@ -120,7 +120,7 @@ class CropClassifier:
         dst_path = Path(output_path) if output_path else self.default_processed_path
 
         dst_path.parent.mkdir(parents=True, exist_ok=True)
-        PredictorPipeline().build_features(src_spectral, src_meteo, dst_path)
+        PredictorPipeline().build_features(self.use_zonal_spectral, src_spectral, src_meteo, dst_path)
 
         return dst_path
 
@@ -128,6 +128,8 @@ class CropClassifier:
         self,
         processed_path: Optional[Union[str, Path]] = None,
         output_prefix: Optional[Union[str, Path]] = None,
+        input_epsg_code: Optional[str] = "EPSG:4326",
+        output_epsg_code: Optional[str] = None,
     ) -> None:
         """Step 3: Run crop classification inference and export the final output.
 
@@ -144,15 +146,18 @@ class CropClassifier:
 
         dst_prefix.parent.mkdir(parents=True, exist_ok=True)
         fields_geometry = self.input_file if self.use_zonal_spectral else None
+        epsg_code = output_epsg_code or self.epsg_code
 
         CropClassifierPipeline().run(
             input_data=src_data,
             output_prefix=dst_prefix,
             model_type=self.model_type,
+            use_zonal_spectral=self.use_zonal_spectral,
             threshold=self.threshold,
             output_format=self.output_format,
             fields_geometry_path=fields_geometry,
-            epsg_code=self.epsg_code,
+            input_epsg_code = input_epsg_code,
+            output_epsg_code = epsg_code,
         )
 
     # --- Complete Pipeline Execution ---
