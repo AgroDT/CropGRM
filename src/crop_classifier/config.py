@@ -7,25 +7,26 @@ ROOT_DIR = Path(__file__).parent
 
 # Features configuration
 BASIC_INDICES = ["blue", "green", "red", "nir", "swir1", "swir2"]
-METEO_INDICES = ['temperature', 'precipitation']
+METEO_INDICES = ["temperature", "precipitation"]
 
 CLASS_NAMES = {
-    1: 'winter wheat',
-    2: 'spring oats',
-    3: 'spring barley',
-    4: 'spring rye',
-    5: 'corn',
-    6: 'soybean',
-    7: 'sunflower',
-    8: 'sugar beet',
-    9: 'rapeseed',
-    10: 'sorghum',
-    11: 'potato',
-    13: 'spring wheat',
-    # 14: 'winter oats',
-    # 15: 'winter barley',
-    # 16: 'winter rye'
+    1: "winter wheat",
+    2: "spring oats",
+    3: "spring barley",
+    4: "spring rye",
+    5: "corn",
+    6: "soybean",
+    7: "sunflower",
+    8: "sugar beet",
+    9: "rapeseed",
+    10: "sorghum",
+    11: "potato",
+    13: "spring wheat",
+    # 14: "winter oats",
+    # 15: "winter barley",
+    # 16: "winter rye"
 }
+
 
 class ModelType(str, Enum):
     SMALL = "small"

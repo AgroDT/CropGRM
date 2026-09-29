@@ -63,22 +63,30 @@ class CropClassifier:
     @property
     def default_spectral_path(self) -> Path:
         """Get default path for downloaded raw spectral data."""
-        return self.output_dir / "raw" / f"{self.input_file.stem}_spectral.{self._file_ext}"
+        return (
+            self.output_dir / "raw" / f"{self.input_file.stem}_spectral.{self._file_ext}"
+        )
 
     @property
     def default_meteo_path(self) -> Path:
         """Get default path for downloaded raw meteorological data."""
-        return self.output_dir / "raw" / f"{self.input_file.stem}_meteo.{self._file_ext}"
+        return (
+            self.output_dir / "raw" / f"{self.input_file.stem}_meteo.{self._file_ext}"
+        )
 
     @property
     def default_processed_path(self) -> Path:
         """Get default path for engineered feature dataset."""
-        return self.output_dir / "processed" / f"{self.input_file.stem}_input.parquet"
+        return (
+            self.output_dir / "processed" / f"{self.input_file.stem}_input.parquet"
+        )
 
     @property
     def default_prediction_prefix(self) -> Path:
         """Get default prefix for prediction output files."""
-        return self.output_dir / "final" / f"{self.input_file.stem}"
+        return (
+            self.output_dir / "final" / f"{self.input_file.stem}"
+        )
 
     # --- Pipeline Steps ---
 
@@ -107,7 +115,9 @@ class CropClassifier:
         Returns:
             Path: Path to the generated feature Parquet file.
         """
-        src_spectral = Path(spectral_path) if spectral_path else self.default_spectral_path
+        src_spectral = (
+            Path(spectral_path) if spectral_path else self.default_spectral_path
+        )
         src_meteo = Path(meteo_path) if meteo_path else self.default_meteo_path
         dst_path = Path(output_path) if output_path else self.default_processed_path
 
@@ -127,8 +137,12 @@ class CropClassifier:
             processed_path: Custom path to engineered feature file. Defaults to default_processed_path.
             output_prefix: Custom output path prefix for prediction artifacts. Defaults to default_prediction_prefix.
         """
-        src_data = Path(processed_path) if processed_path else self.default_processed_path
-        dst_prefix = Path(output_prefix) if output_prefix else self.default_prediction_prefix
+        src_data = (
+            Path(processed_path) if processed_path else self.default_processed_path
+        )
+        dst_prefix = (
+            Path(output_prefix) if output_prefix else self.default_prediction_prefix
+        )
 
         dst_prefix.parent.mkdir(parents=True, exist_ok=True)
         fields_geometry = self.input_file if self.use_zonal_spectral else None

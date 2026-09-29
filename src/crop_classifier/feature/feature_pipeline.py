@@ -17,9 +17,7 @@ logger = logging.getLogger(__name__)
 
 class PredictorPipeline:
     """Predictor calculation of meteorological and spectral features."""
-    def __init__(
-        self
-    ):
+    def __init__(self):
         self.preparer = DataPreparer()
         self.spectral_extractor = SpectralFeatureCalculator()
         self.meteo_extractor = MeteoFeatureCalculator()

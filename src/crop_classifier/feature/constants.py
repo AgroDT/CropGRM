@@ -3,34 +3,34 @@ import multiprocessing
 import numpy as np
 import sympy as sp
 
-DATA_TYPE_SPECTRAL = 'spectral'
-DATA_TYPE_METEO = 'meteorological'
+DATA_TYPE_SPECTRAL = "spectral"
+DATA_TYPE_METEO = "meteorological"
 
 CHUNK_SIZE = 50_000
 N_JOBS = multiprocessing.cpu_count()
 
 FEATURE_CONFIG = {
-    "red":   {"pipeline": "mean"},
-    "nir":   {"pipeline": "mean"},
-    "blue":  {"pipeline": "mean"},
+    "red": {"pipeline": "mean"},
+    "nir": {"pipeline": "mean"},
+    "blue": {"pipeline": "mean"},
     "swir1": {"pipeline": "mean"},
     "green": {"pipeline": "mean"},
     "swir2": {"pipeline": "mean"},
-    "ndyi":  {"pipeline": "extrema"},
-    "ndmi":  {"pipeline": "curve"},
+    "ndyi": {"pipeline": "extrema"},
+    "ndmi": {"pipeline": "curve"},
     "wrdvi": {"pipeline": "curve"},
 }
 
 BOUNDS_CONFIG = {
-    'wrdvi': ([-1, -1, 0, 0, 0, 0], [1, 1, 365, 365, 1, 1]),
-    'ndmi': ([-0.2, -0.2, 0, 0, 0, 0], [1, 1, 365, 365, 1, 1]),
+    "wrdvi": ([-1, -1, 0, 0, 0, 0], [1, 1, 365, 365, 1, 1]),
+    "ndmi": ([-0.2, -0.2, 0, 0, 0, 0], [1, 1, 365, 365, 1, 1]),
 }
 
 X_VALUES = np.linspace(1, 365, 2000)
 
 # SymPy Derivative Calculations
-x = sp.symbols('x')
-wNDVI_sym, mNDVI_sym, S_sym, A_sym, mS_sym, mA_sym = sp.symbols('wNDVI mNDVI S A mS mA')
+x = sp.symbols("x")
+wNDVI_sym, mNDVI_sym, S_sym, A_sym, mS_sym, mA_sym = sp.symbols("wNDVI mNDVI S A mS mA")
 
 sigmoid1_sym = 1 / (1 + sp.exp(-mS_sym * (x - S_sym)))
 sigmoid2_sym = 1 / (1 + sp.exp(mA_sym * (x - A_sym)))
@@ -44,4 +44,6 @@ fourth_derivative_sym = sp.diff(third_derivative_sym, x)
 
 symbols_for_lambdify = [x, wNDVI_sym, mNDVI_sym, S_sym, A_sym, mS_sym, mA_sym]
 
-FOURTH_DERIVATIVE_LAMBDIFIED = sp.lambdify(symbols_for_lambdify, fourth_derivative_sym, 'numpy')
+FOURTH_DERIVATIVE_LAMBDIFIED = sp.lambdify(
+    symbols_for_lambdify, fourth_derivative_sym, "numpy"
+)
