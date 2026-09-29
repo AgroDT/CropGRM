@@ -9,7 +9,6 @@ import rasterio
 from pyproj import Transformer
 from rasterio.crs import CRS
 
-
 from crop_classifier.config import BASIC_INDICES, METEO_INDICES
 from crop_classifier.gee_extractor.constants import DATA_TYPE_METEO, DATA_TYPE_SPECTRAL
 

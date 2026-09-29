@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-import rioxarray
+import rioxarray  # noqa: F401
 import xarray as xr
 
 from crop_classifier.prediction.exporters.base import BaseExporter

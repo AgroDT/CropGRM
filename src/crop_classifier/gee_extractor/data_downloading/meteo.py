@@ -1,5 +1,3 @@
-from typing import Tuple
-
 import ee
 
 from crop_classifier.config import METEO_INDICES

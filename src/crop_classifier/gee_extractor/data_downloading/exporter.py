@@ -4,6 +4,7 @@ import ee
 
 from crop_classifier.gee_extractor.data_downloading.base import _BaseGEEExtractor
 
+
 class RasterExporter(_BaseGEEExtractor):
     """Save ee.Image locally."""
 

@@ -7,8 +7,12 @@ import ee
 import geemap
 import geopandas as gpd
 
-from crop_classifier.gee_extractor import SpectralExtractor, MeteoExtractor, RasterExporter
-from crop_classifier.gee_extractor import TiffTransformator
+from crop_classifier.gee_extractor import (
+     MeteoExtractor,
+     RasterExporter,
+     SpectralExtractor,
+     TiffTransformator,
+)
 from crop_classifier.gee_extractor.constants import DATA_TYPE_SPECTRAL, DATA_TYPE_METEO
 
 logger = logging.getLogger(__name__)

@@ -1,5 +1,5 @@
 import warnings
-from typing import Dict, Callable
+from typing import Callable, Dict
 
 import numpy as np
 import polars as pl

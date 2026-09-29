@@ -11,7 +11,6 @@ from crop_classifier.feature import (
     DataPreparer,
     MeteoFeatureCalculator,
     SpectralFeatureCalculator,
-
 )
 
 

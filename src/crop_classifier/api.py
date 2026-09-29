@@ -1,5 +1,4 @@
 from pathlib import Path
-
 from typing import Union, Optional
 
 from crop_classifier import ModelType, OutputFormat

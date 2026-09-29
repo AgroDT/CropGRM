@@ -1,7 +1,7 @@
 import warnings
 
 import numpy as np
-from scipy.optimize import curve_fit, OptimizeWarning
+from scipy.optimize import OptimizeWarning, curve_fit
 
 
 def double_logistic_function(t, wNDVI, mNDVI, S, A, mS, mA):
