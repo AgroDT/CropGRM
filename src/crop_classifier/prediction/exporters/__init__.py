@@ -1,4 +1,5 @@
 import pandas as pd
+
 from crop_classifier.config import OutputFormat
 from crop_classifier.prediction.exporters.base import BaseExporter
 from crop_classifier.prediction.exporters.point_raster import PointRasterExporter

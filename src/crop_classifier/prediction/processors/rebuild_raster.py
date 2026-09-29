@@ -1,5 +1,5 @@
+import numpy as np
 import xarray as xr
-import pandas as pd
 
 
 def raster_creation(df, output_tif):

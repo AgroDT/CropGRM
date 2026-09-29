@@ -1,8 +1,10 @@
 from typing import Tuple
+
 import ee
-import geedim
-from crop_classifier.gee_extractor.data_downloading.base import _BaseGEEExtractor
+
 from crop_classifier.config import METEO_INDICES
+from crop_classifier.gee_extractor.data_downloading.base import _BaseGEEExtractor
+
 
 class MeteoExtractor(_BaseGEEExtractor):
     """Downloading ECMWF/ERA5_LAND/DAILY_AGGR."""

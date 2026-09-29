@@ -1,5 +1,6 @@
 from pathlib import Path
-from typing import Dict, Union
+from typing import Union
+
 import geopandas as gpd
 import matplotlib.pyplot as plt
 import pandas as pd

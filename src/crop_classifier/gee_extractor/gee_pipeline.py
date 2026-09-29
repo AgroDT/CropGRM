@@ -1,11 +1,10 @@
 import logging
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Union
-from datetime import datetime, timezone
 
 import ee
 import geemap
-import geedim
 import geopandas as gpd
 
 from crop_classifier.gee_extractor import SpectralExtractor, MeteoExtractor, RasterExporter

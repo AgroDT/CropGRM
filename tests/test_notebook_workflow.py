@@ -8,7 +8,6 @@ import pandas as pd
 from crop_classifier import CropClassifier, ModelType, OutputFormat
 from crop_classifier.prediction.processors.make_predictions import CropPredictor
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 

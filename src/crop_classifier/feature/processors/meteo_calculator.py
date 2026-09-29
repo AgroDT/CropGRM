@@ -1,6 +1,5 @@
-from pathlib import Path
-from typing import Dict, List, Optional, Union
 import polars as pl
+
 
 class MeteoFeatureCalculator():
     def calculate_meteo_features(

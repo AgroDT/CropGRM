@@ -1,9 +1,9 @@
 from pathlib import Path
-from typing import Dict, Union
+
 import geopandas as gpd
 import pandas as pd
+
 from crop_classifier.prediction.exporters.base import BaseExporter
-from crop_classifier.config import CLASS_NAMES
 
 
 class VectorExporter(BaseExporter):
@@ -16,7 +16,7 @@ class VectorExporter(BaseExporter):
         fields_geometry_path: Union[str, Path] = None,
         **kwargs
     ) -> None:
-        if not fields_geometry_path or class_names is None:
+        if not fields_geometry_path:
             raise ValueError("For vector exporting 'fields_geometry_path' required.")
 
         gdf = (

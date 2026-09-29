@@ -1,9 +1,10 @@
 from pathlib import Path
+
 from typing import Union, Optional
 
 from crop_classifier import ModelType, OutputFormat
-from crop_classifier.gee_extractor.gee_pipeline import GEEDownloadingDataPipeline
 from crop_classifier.feature.feature_pipeline import PredictorPipeline
+from crop_classifier.gee_extractor.gee_pipeline import GEEDownloadingDataPipeline
 from crop_classifier.prediction.prediction_pipeline import CropClassifierPipeline
 
 

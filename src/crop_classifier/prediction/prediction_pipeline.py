@@ -1,10 +1,11 @@
 from pathlib import Path
 from typing import Dict, Optional, Union
+
 import pandas as pd
 
-from crop_classifier.config import ModelType, OutputFormat, CLASS_NAMES
-from crop_classifier.prediction.processors.make_predictions import CropPredictor
+from crop_classifier.config import CLASS_NAMES, ModelType, OutputFormat
 from crop_classifier.prediction.exporters import ExporterFactory
+from crop_classifier.prediction.processors.make_predictions import CropPredictor
 
 
 class CropClassifierPipeline:

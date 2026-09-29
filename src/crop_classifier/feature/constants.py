@@ -1,7 +1,8 @@
-from pathlib import Path
+import multiprocessing
+
 import numpy as np
 import sympy as sp
-import multiprocessing
+
 
 DATA_TYPE_SPECTRAL = 'spectral'
 DATA_TYPE_METEO = 'meteorological'

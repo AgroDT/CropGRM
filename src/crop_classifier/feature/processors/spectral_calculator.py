@@ -1,23 +1,28 @@
-from pathlib import Path
-from typing import Dict, List, Optional, Union, Callable
+import warnings
+from typing import Dict, Callable
+
+import numpy as np
 import polars as pl
 from joblib import Parallel, delayed
 from scipy.interpolate import interp1d
-import numpy as np
-import warnings
 
-from crop_classifier.feature.math.curves import double_logistic_function, fit_curve, sort_extrema_points
+from crop_classifier.config import BASIC_INDICES
+from crop_classifier.feature.constants import (
+    BOUNDS_CONFIG,
+    CHUNK_SIZE,
+    FEATURE_CONFIG,
+    FOURTH_DERIVATIVE_LAMBDIFIED,
+    N_JOBS,
+    X_VALUES,
+)
+from crop_classifier.feature.math.curves import (
+    double_logistic_function,
+    fit_curve,
+    sort_extrema_points,
+)
 from crop_classifier.feature.math.filtering_outliers import hampel_filter
 from crop_classifier.feature.processors.add_indices import add_indices
-from crop_classifier.feature.constants import (
-    CHUNK_SIZE,
-    N_JOBS,
-    FEATURE_CONFIG,
-    BOUNDS_CONFIG,
-    X_VALUES,
-    FOURTH_DERIVATIVE_LAMBDIFIED,
-)
-from crop_classifier.config import BASIC_INDICES
+
 
 class SpectralFeatureCalculator():
     def __init__(self):

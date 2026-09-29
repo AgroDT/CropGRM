@@ -1,7 +1,7 @@
 import logging
 
-from crop_classifier.config import ModelType, OutputFormat
 from crop_classifier.api import CropClassifier
+from crop_classifier.config import ModelType, OutputFormat
 
 logging.getLogger("crop_classifier").addHandler(logging.NullHandler())
 

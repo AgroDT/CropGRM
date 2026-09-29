@@ -6,17 +6,12 @@ import numpy as np
 import pyarrow as pa
 import pyarrow.parquet as pq
 import rasterio
-from rasterio.crs import CRS
 from pyproj import Transformer
+from rasterio.crs import CRS
 
-from crop_classifier.config import (
-    BASIC_INDICES,
-    METEO_INDICES
-)
-from crop_classifier.gee_extractor.constants import (
-    DATA_TYPE_SPECTRAL,
-    DATA_TYPE_METEO
-)
+
+from crop_classifier.config import BASIC_INDICES, METEO_INDICES
+from crop_classifier.gee_extractor.constants import DATA_TYPE_METEO, DATA_TYPE_SPECTRAL
 
 logger = logging.getLogger(__name__)
 

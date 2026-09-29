@@ -1,8 +1,10 @@
 from typing import Tuple
+
 import ee
-import geedim
-from crop_classifier.gee_extractor.data_downloading.base import _BaseGEEExtractor
+
 from crop_classifier.config import BASIC_INDICES
+from crop_classifier.gee_extractor.data_downloading.base import _BaseGEEExtractor
+
 
 class SpectralExtractor(_BaseGEEExtractor):
     """Processing Landsat Collection 2 Level 2."""

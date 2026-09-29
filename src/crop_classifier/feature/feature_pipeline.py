@@ -1,9 +1,9 @@
-import multiprocessing
-from pathlib import Path
-from typing import Dict, List, Optional, Union
-import polars as pl
-from joblib import Parallel, delayed
 import gc
+import logging
+from pathlib import Path
+from typing import Union
+
+import polars as pl
 
 from crop_classifier.config import BASIC_INDICES, METEO_INDICES
 from crop_classifier.feature import (
@@ -14,7 +14,6 @@ from crop_classifier.feature import (
 
 )
 
-import logging
 
 logger = logging.getLogger(__name__)
 

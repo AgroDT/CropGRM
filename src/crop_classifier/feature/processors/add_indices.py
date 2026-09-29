@@ -1,5 +1,6 @@
 import polars as pl
 
+
 def add_indices(df: pl.DataFrame) -> pl.DataFrame:
     """Calculate indices"""
     return df.with_columns([

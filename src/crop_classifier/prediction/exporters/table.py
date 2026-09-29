@@ -1,6 +1,5 @@
-from pathlib import Path
-from typing import Union
 import pandas as pd
+
 from crop_classifier.prediction.exporters.base import BaseExporter
 
 

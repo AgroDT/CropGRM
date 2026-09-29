@@ -4,7 +4,9 @@ import polars as pl
 
 from crop_classifier.feature.processors.add_indices import add_indices
 from crop_classifier.feature.processors.meteo_calculator import MeteoFeatureCalculator
-from crop_classifier.feature.processors.spectral_calculator import SpectralFeatureCalculator
+from crop_classifier.feature.processors.spectral_calculator import (
+    SpectralFeatureCalculator,
+)
 
 
 class FeatureCalculatorTests(unittest.TestCase):

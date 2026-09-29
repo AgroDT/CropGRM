@@ -5,8 +5,8 @@ import numpy as np
 import pandas as pd
 from catboost import CatBoostClassifier
 
-from crop_classifier.config import DEFAULT_MODEL_PATHS, ModelType
-from crop_classifier.config import CLASS_NAMES
+from crop_classifier.config import CLASS_NAMES, DEFAULT_MODEL_PATHS, ModelType
+
 
 class CropPredictor:
     """Downlowding and inference CatBoost model."""

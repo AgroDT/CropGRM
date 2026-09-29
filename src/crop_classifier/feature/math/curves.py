@@ -1,6 +1,8 @@
+import warnings
+
 import numpy as np
 from scipy.optimize import curve_fit, OptimizeWarning
-import warnings
+
 
 def double_logistic_function(t, wNDVI, mNDVI, S, A, mS, mA):
     sigmoid1 = 1 / (1 + np.exp(-mS * (t - S)))

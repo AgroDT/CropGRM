@@ -1,6 +1,8 @@
 from pathlib import Path
 from typing import List, Union
+
 import polars as pl
+
 
 class DataPreparer:
     """Data preparing for calculation."""

@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def hampel_filter(y: np.ndarray, window_size: int, sigm: float = 3) -> np.ndarray:
     """Filter outliers by Hampel filter"""
     new_y = y.copy()
