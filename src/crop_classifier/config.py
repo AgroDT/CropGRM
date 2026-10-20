@@ -29,6 +29,7 @@ CLASS_NAMES = {
 
 
 class ModelType(str, Enum):
+    """Identify the available crop classification model variants."""
     SMALL = "small"
     OPTIMIZED = "optimized"
     LARGE = "large"
@@ -36,6 +37,7 @@ class ModelType(str, Enum):
 
 
 class OutputFormat(str, Enum):
+    """Identify the supported prediction export formats."""
     TABLE = "table"
     VECTOR = "vector"
     RASTER = "raster"

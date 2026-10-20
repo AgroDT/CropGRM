@@ -12,7 +12,7 @@ from crop_classifier.prediction.exporters.base import BaseExporter
 
 
 class PolygonRasterExporter(BaseExporter):
-    """Field geometry rasterization on the base field_id."""
+    """Rasterize crop labels joined to field polygons by field_id."""
 
     def export(
         self,
@@ -24,6 +24,27 @@ class PolygonRasterExporter(BaseExporter):
         nodata: int = -9999,
         **kwargs,
     ) -> None:
+        """Rasterize field classes to a single-band GeoTIFF.
+
+        Grid dimensions are truncated to whole pixels, excluding partial edge
+        cells from the output extent.
+
+        Args:
+            df (pandas.DataFrame): Predictions containing field_id and class; missing
+                joined classes are filled with 0.
+            output_prefix (str | Path): Destination prefix; .tif is appended.
+            fields_geometry_path (str | Path | None): Polygon file with geometry and
+                field_id; a path is required.
+            output_epsg_code (str | None): Target CRS; None retains the polygon CRS.
+            pixel_size (int | float): Positive pixel dimensions in the raster CRS units.
+                The caller must choose a value matching those units, such as degrees
+                for a geographic CRS. Bounds must span at least one pixel per axis.
+            nodata (int): Background value, representable as int16.
+            **kwargs (object): Additional export options, ignored by this exporter.
+
+        Raises:
+            ValueError: If fields_geometry_path is missing.
+        """
         if not fields_geometry_path:
             raise ValueError(
                 "For polygon rasterization 'fields_geometry_path' required."

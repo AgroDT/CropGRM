@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 class GEEDownloadingDataPipeline:
+    """Download field statistics or pixel time series from Earth Engine."""
     def __init__(
         self,
         project_id: str,
@@ -27,12 +28,24 @@ class GEEDownloadingDataPipeline:
         use_zonal_spectral: bool = False,
         opt_url: str = "https://earthengine-highvolume.googleapis.com",
     ):
+        """Configure seasonal extraction and initialize Earth Engine clients.
+
+        Args:
+            project_id (str): Earth Engine project ID.
+            year (int): Calendar year for extraction from April 1 inclusive to
+                November 1 exclusive, including October 31.
+            output_dir (str | Path): Root output directory; downloads are stored in its
+                raw subdirectory.
+            use_zonal_spectral (bool): Whether to export field medians as CSV instead of
+                raster-derived pixel Parquet files.
+            opt_url (str): Earth Engine API endpoint URL.
+        """
         self.year = year
         self.output_dir = Path(output_dir) / "raw"
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
         self.start_date = f"{year}-04-01"
-        self.end_date = f"{year}-10-31"
+        self.end_date = f"{year}-11-01"
         self.use_zonal_spectral = use_zonal_spectral
 
         self.spectral = SpectralExtractor(project_id, opt_url)
@@ -43,7 +56,19 @@ class GEEDownloadingDataPipeline:
         self,
         shapefile_path: Union[str, Path],
     ) -> None:
-        """Pipeline for downloading GEE data depending on input options."""
+        """Download seasonal observations for an input shapefile.
+
+        Field mode writes spectral and weather CSV files. Pixel mode writes scene
+        GeoTIFFs and combined Parquet tables. Missing weather images are logged
+        and skipped by the weather download steps.
+
+        Args:
+            shapefile_path (str | Path): Shapefile defining the extraction region and
+                fields.
+
+        Raises:
+            ValueError: If the selected interval contains no spectral images.
+        """
         logger.info(f"Starting pipeline for {shapefile_path}, year {self.year}")
 
         gdf = gpd.read_file(shapefile_path)
@@ -84,6 +109,16 @@ class GEEDownloadingDataPipeline:
     def _fetch_spectral_stats(
         self, shape_ee: ee.FeatureCollection, output_csv: Path
     ) -> None:
+        """Export field medians from the seasonal Landsat collection.
+
+        Args:
+            shape_ee (ee.FeatureCollection): Field geometries used for median zonal
+                statistics.
+            output_csv (str | Path): Destination CSV path.
+
+        Raises:
+            ValueError: If no spectral images are available.
+        """
         collection = self.spectral.get_time_series_collection(
             geometry=shape_ee.geometry(),
             start_date=self.start_date,
@@ -103,6 +138,16 @@ class GEEDownloadingDataPipeline:
     def _export_spectral_time_series(
         self, geometry: ee.Geometry, base_name: str, export_dir: Path
     ) -> None:
+        """Export seasonal Landsat scenes as GeoTIFFs.
+
+        Args:
+            geometry (ee.Geometry): Region to clip and export.
+            base_name (str): Filename prefix used for each exported scene.
+            export_dir (Path): Directory for GeoTIFF scene files, created if needed.
+
+        Raises:
+            ValueError: If no spectral images are available.
+        """
         collection = self.spectral.get_time_series_collection(
             geometry=geometry,
             start_date=self.start_date,
@@ -137,6 +182,13 @@ class GEEDownloadingDataPipeline:
     def _fetch_meteo_stats(
         self, shape_ee: ee.FeatureCollection, output_csv: Path
     ) -> None:
+        """Export field weather medians when images are available.
+
+        Args:
+            shape_ee (ee.FeatureCollection): Field geometries used for median zonal
+                statistics.
+            output_csv (str | Path): Destination CSV path.
+        """
         collection = self.meteo.get_collection(
             geometry=shape_ee.geometry(),
             start_date=self.start_date,
@@ -154,6 +206,13 @@ class GEEDownloadingDataPipeline:
     def _export_meteo_time_series(
         self, geometry: ee.Geometry, base_name: str, export_dir: Path
     ) -> None:
+        """Export daily weather GeoTIFFs when images are available.
+
+        Args:
+            geometry (ee.Geometry): Region to clip and export.
+            base_name (str): Filename prefix used for each exported scene.
+            export_dir (Path): Directory for GeoTIFF scene files, created if needed.
+        """
         collection = self.meteo.get_collection(
             geometry=geometry,
             start_date=self.start_date,

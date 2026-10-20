@@ -1,4 +1,5 @@
 import warnings
+from calendar import monthrange
 from typing import Callable, Dict
 
 import numpy as np
@@ -25,7 +26,13 @@ from crop_classifier.feature.processors.add_indices import add_indices
 
 
 class SpectralFeatureCalculator:
+    """Extract spectral summaries and seasonal curve features.
+
+    Attributes:
+        pipelines (dict[str, Callable]): Registered per-index feature processors.
+    """
     def __init__(self):
+        """Initialize spectral feature settings and built-in processors."""
         self.feature_config = FEATURE_CONFIG
         self.bounds_config = BOUNDS_CONFIG
         self.x_values = X_VALUES
@@ -39,7 +46,37 @@ class SpectralFeatureCalculator:
             "extrema": self.process_ndyi_features,
         }
 
+    def _months_for_doy(self, year: int) -> np.ndarray:
+        """Map the configured day grid to calendar months for a year.
+
+        Args:
+            year (int): Calendar year of the observation group.
+
+        Returns:
+            numpy.ndarray: Month numbers with the same shape as x_values; fractional
+                days use their integer part.
+        """
+        month_ends = np.cumsum([monthrange(year, month)[1] for month in range(1, 13)])
+        return np.searchsorted(month_ends, self.x_values.astype(int)) + 1
+
     def process_spectral_features_means(self, group_df, index, precomputed_values=None):
+        """Summarize a linearly interpolated spectral time series.
+
+        Extrema use the configured day grid. Monthly medians use the calendar
+        year of the observation group.
+
+        Args:
+            group_df (polars.DataFrame): One spatial entity in a single year, with
+                field_id, year, DOY, and the selected index, ordered by date.
+            index (str): Name of the numeric spectral band or index column.
+            precomputed_values (numpy.ndarray | None): Optional filtered values with
+                shape (n,), aligned with rows remaining after DOY >= 90 filtering.
+
+        Returns:
+            dict[str, object] | None: Field ID, index extrema and their days of year,
+                and April-to-October interpolated medians; None if fewer than two
+                observations remain.
+        """
         group_df = group_df.filter(pl.col("DOY") >= 90)
         if len(group_df) < 2:
             return None
@@ -60,13 +97,8 @@ class SpectralFeatureCalculator:
         result[f"{index}_doy_min"] = float(self.x_values[np.argmin(y_interp)])
         result[f"{index}_doy_max"] = float(self.x_values[np.argmax(y_interp)])
 
-        synth = pl.DataFrame({"DOY": self.x_values, index: y_interp})
-        synth = synth.with_columns(
-            pl.lit("2024-01-01")
-            .str.strptime(pl.Datetime, "%Y-%m-%d")
-            .dt.offset_by((pl.col("DOY").cast(pl.Int64) - 1).cast(pl.String) + "d")
-            .dt.month()
-            .alias("month")
+        synth = pl.DataFrame(
+            {"month": self._months_for_doy(group_df["year"][0]), index: y_interp}
         )
 
         monthly = synth.group_by("month").agg(pl.col(index).median().alias("median"))
@@ -81,6 +113,25 @@ class SpectralFeatureCalculator:
     def process_spectral_features_curve(
         self, group_df, index, bounds, precomputed_values=None
     ):
+        """Extract features from a fitted double logistic curve.
+
+        Extrema use the configured day grid. Monthly medians use the calendar
+        year of the observation group.
+
+        Args:
+            group_df (polars.DataFrame): One spatial entity in a single year, with
+                field_id, year, DOY, and the selected index, ordered by date.
+            index (str): Name of the numeric spectral band or index column.
+            bounds (tuple[array-like, array-like]): Lower and upper bounds for wNDVI,
+                mNDVI, S, A, mS, and mA.
+            precomputed_values (numpy.ndarray | None): Optional filtered values with
+                shape (n,), aligned with rows remaining after DOY >= 90 filtering.
+
+        Returns:
+            dict[str, object] | None: Field ID, fitted parameters, extrema, growth and
+                decay features, and monthly medians; times are days of year. None if
+                fewer than six observations remain or the fit is invalid.
+        """
         group_df = group_df.filter(pl.col("DOY") >= 90)
         if len(group_df) < 6:
             return None
@@ -149,13 +200,8 @@ class SpectralFeatureCalculator:
             f"{index}_mean_decay": double_logistic_function(A, *params),
         }
 
-        synth = pl.DataFrame({"DOY": self.x_values, index: finer_values})
-        synth = synth.with_columns(
-            pl.lit("2024-01-01")
-            .str.strptime(pl.Datetime, "%Y-%m-%d")
-            .dt.offset_by((pl.col("DOY").cast(pl.Int64) - 1).cast(pl.String) + "d")
-            .dt.month()
-            .alias("month")
+        synth = pl.DataFrame(
+            {"month": self._months_for_doy(group_df["year"][0]), index: finer_values}
         )
         monthly = synth.group_by("month").agg(pl.col(index).median().alias("median"))
         for month in range(4, 11):
@@ -167,6 +213,19 @@ class SpectralFeatureCalculator:
         return result
 
     def process_ndyi_features(self, group_df, index, precomputed_values=None):
+        """Find filtered spectral extrema and their timing.
+
+        Args:
+            group_df (polars.DataFrame): One spatial entity with field_id, DOY, and the
+                selected index; observations must be ordered by DOY.
+            index (str): Name of the numeric spectral band or index column.
+            precomputed_values (numpy.ndarray | None): Optional filtered values with
+                shape (n,), aligned with rows remaining after DOY >= 90 filtering.
+
+        Returns:
+            dict[str, object] | None: Field ID, filtered index extrema, and their
+                days of year; None if no observations remain after DOY >= 90 filtering.
+        """
         group_df = group_df.filter(pl.col("DOY") >= 90)
         if len(group_df) == 0:
             return None
@@ -186,9 +245,31 @@ class SpectralFeatureCalculator:
         return result
 
     def register_pipeline(self, name: str, func: Callable):
+        """Register or replace a named spectral feature processor.
+
+        Args:
+            name (str): Processor name referenced by the feature configuration.
+            func (Callable): Processor accepting (group, index, cached_values), or
+                (group, index, bounds, cached_values) for curve; returns a feature
+                dictionary or None.
+        """
         self.pipelines[name] = func
 
     def _run_pipeline(self, pipeline_name, index, grouped_data):
+        """Apply a registered processor to each spatial group.
+
+        Args:
+            pipeline_name (str): Registered processor name; curve receives configured
+                bounds.
+            index (str): Name of the numeric spectral band or index column.
+            grouped_data (list[tuple]): Pairs of a polars.DataFrame spatial group
+                and a cache mapping index names to filtered numpy.ndarray values
+                with shape (n,), or None.
+
+        Returns:
+            list[dict[str, object] | None]: Processor results in input group order,
+                including skipped results as None.
+        """
         func = self.pipelines[pipeline_name]
 
         if pipeline_name == "curve":
@@ -203,6 +284,17 @@ class SpectralFeatureCalculator:
         )
 
     def calculate_spectral_features(self, df_prepared: pl.DataFrame) -> pl.DataFrame:
+        """Build configured spectral features for all spatial entities.
+
+        Args:
+            df_prepared (polars.DataFrame): Prepared observations for one year, with
+                field_id, date, year, DOY, and bands required by add_indices; optional
+                lat and lon are retained.
+
+        Returns:
+            polars.DataFrame: Features joined by field_id, with available spatial
+                coordinates and nulls for missing feature results.
+        """
         df = add_indices(df_prepared)
 
         id_columns = [c for c in df.columns if c in ["lat", "lon", "field_id"]]

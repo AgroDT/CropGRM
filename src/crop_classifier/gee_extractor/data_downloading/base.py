@@ -7,6 +7,7 @@ logger = logging.getLogger(__name__)
 
 
 class _BaseGEEExtractor:
+    """Share Earth Engine initialization across data extractors."""
     _is_initialized = False
 
     def __init__(
@@ -14,11 +15,19 @@ class _BaseGEEExtractor:
         project_id: Optional[str] = None,
         opt_url: str = "https://earthengine-highvolume.googleapis.com",
     ):
+        """Configure and initialize the Earth Engine connection.
+
+        Args:
+            project_id (str | None): Earth Engine project ID; None uses the
+                initialization default.
+            opt_url (str): Earth Engine API endpoint URL.
+        """
         self.project_id = project_id
         self.opt_url = opt_url
         self._initialize_ee()
 
     def _initialize_ee(self) -> None:
+        """Initialize Earth Engine once, authenticating if the first attempt fails."""
         if _BaseGEEExtractor._is_initialized:
             return
         try:

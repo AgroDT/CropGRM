@@ -2,12 +2,24 @@ import polars as pl
 
 
 class MeteoFeatureCalculator:
+    """Calculate monthly weather features for each spatial entity."""
     def calculate_meteo_features(
         self,
         df,
     ) -> pl.DataFrame:
 
-        condition = df["temperature"] > 10
+        """Aggregate monthly temperature and precipitation features.
+
+        Args:
+            df (polars.DataFrame): Observations with field_id, month, temperature in
+                kelvins, and precipitation in meters. Temperature values
+                must remain in kelvins; no conversion is applied.
+
+        Returns:
+            polars.DataFrame: One row per field_id with median_t, sum_t, median_prec,
+                and sum_prec columns suffixed by month. Temperature features retain
+                kelvin units. Precipitation features retain meter units.
+        """
 
         com_calculated = df.group_by(["field_id", "month"]).agg(
             [
@@ -18,8 +30,7 @@ class MeteoFeatureCalculator:
         )
 
         temp_calculated = (
-            df.filter(condition)
-            .group_by(["field_id", "month"])
+            df.group_by(["field_id", "month"])
             .agg([pl.col("temperature").sum().alias("sum_t")])
         )
 

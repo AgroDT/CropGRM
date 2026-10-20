@@ -28,18 +28,24 @@ class CropClassifier:
         output_format: Union[OutputFormat, str] = OutputFormat.TABLE,
         epsg_code: Optional[str] = None,
     ):
-        """Initialize the CropClassifier pipeline.
+        """Initialize the crop classification workflow.
 
         Args:
-            shapefile_path: Path to the input shapefile specifying regions of interest.
-            gee_project: Google Earth Engine project ID or cloud project identifier.
-            year: Target year for satellite imagery and weather data extraction.
-            output_dir: Root directory path where raw, processed, and final files will be saved.
-            use_zonal_spectral: If True, uses zonal statistics (CSV); if False, pixel-based extraction (Parquet). Defaults to True.
-            model_type: Type of model to use for inference. Defaults to ModelType.FINETUNED.
-            threshold: Classification probability threshold. Defaults to 0.5.
-            output_format: Output format for final predictions (e.g., OutputFormat.TABLE or OutputFormat.RASTER). Defaults to OutputFormat.TABLE.
-            epsg_code: Target EPSG coordinate system code. Defaults to "EPSG:32637".
+            shapefile_path (str | Path): Input shapefile defining the regions of
+                interest.
+            gee_project (str): Google Earth Engine project ID.
+            year (int): Calendar year of the imagery and weather data.
+            output_dir (str | Path): Root directory for raw data, features, and
+                predictions.
+            use_zonal_spectral (bool): Whether to use field statistics rather than pixel
+                data.
+            model_type (ModelType | str): Model variant or its configured string value.
+            threshold (float): Minimum class probability to exceed for an accepted
+                prediction.
+            output_format (OutputFormat | str): Prediction export format or its string
+                value.
+            epsg_code (str | None): Output raster CRS identifier; ignored for table
+                and vector exports. A CRS is required for point raster output.
         """
         self.input_file = Path(shapefile_path)
         self.project_id = gee_project
@@ -57,12 +63,20 @@ class CropClassifier:
 
     @property
     def _file_ext(self) -> str:
-        """Get raw data file extension based on spectral mode."""
+        """Get the raw data extension for the extraction mode.
+
+        Returns:
+            str: "csv" for field statistics or "parquet" for pixel data.
+        """
         return "csv" if self.use_zonal_spectral else "parquet"
 
     @property
     def default_spectral_path(self) -> Path:
-        """Get default path for downloaded raw spectral data."""
+        """Get the default path for raw spectral data.
+
+        Returns:
+            Path: Spectral CSV or Parquet path under the raw directory.
+        """
         return (
             self.output_dir
             / "raw"
@@ -71,25 +85,37 @@ class CropClassifier:
 
     @property
     def default_meteo_path(self) -> Path:
-        """Get default path for downloaded raw meteorological data."""
+        """Get the default path for raw meteorological data.
+
+        Returns:
+            Path: Weather CSV or Parquet path under the raw directory.
+        """
         return (
             self.output_dir / "raw" / f"{self.input_file.stem}_meteo.{self._file_ext}"
         )
 
     @property
     def default_processed_path(self) -> Path:
-        """Get default path for engineered feature dataset."""
+        """Get the default path for the feature dataset.
+
+        Returns:
+            Path: Feature Parquet path under the processed directory.
+        """
         return self.output_dir / "processed" / f"{self.input_file.stem}_input.parquet"
 
     @property
     def default_prediction_prefix(self) -> Path:
-        """Get default prefix for prediction output files."""
+        """Get the default prefix for prediction files.
+
+        Returns:
+            Path: Output path prefix under the final directory, without an extension.
+        """
         return self.output_dir / "final" / f"{self.input_file.stem}"
 
     # --- Pipeline Steps ---
 
     def download_data(self) -> None:
-        """Step 1: Download raw satellite spectral data and meteorological metrics from GEE."""
+        """Download spectral and meteorological observations from Earth Engine."""
         GEEDownloadingDataPipeline(
             project_id=self.project_id,
             year=self.year,
@@ -103,15 +129,22 @@ class CropClassifier:
         meteo_path: Optional[Union[str, Path]] = None,
         output_path: Optional[Union[str, Path]] = None,
     ) -> Path:
-        """Step 2: Generate features from raw spectral and meteorological datasets.
+        """Build spectral and meteorological features.
 
         Args:
-            spectral_path: Custom path to raw spectral data. Defaults to default_spectral_path.
-            meteo_path: Custom path to raw meteorological data. Defaults to default_meteo_path.
-            output_path: Custom destination path for processed features. Defaults to default_processed_path.
+            spectral_path (str | Path | None): Raw spectral data path; None uses
+                default_spectral_path.
+            meteo_path (str | Path | None): Raw weather data path; None uses
+                default_meteo_path.
+            output_path (str | Path | None): Feature destination; None uses
+                default_processed_path.
 
         Returns:
             Path: Path to the generated feature Parquet file.
+
+        Raises:
+            ValueError: If the datasets have no common spatial IDs or a file format is
+                unsupported.
         """
         src_spectral = (
             Path(spectral_path) if spectral_path else self.default_spectral_path
@@ -133,11 +166,17 @@ class CropClassifier:
         input_epsg_code: Optional[str] = "EPSG:4326",
         output_epsg_code: Optional[str] = None,
     ) -> None:
-        """Step 3: Run crop classification inference and export the final output.
+        """Classify prepared features and export predictions.
 
         Args:
-            processed_path: Custom path to engineered feature file. Defaults to default_processed_path.
-            output_prefix: Custom output path prefix for prediction artifacts. Defaults to default_prediction_prefix.
+            processed_path (str | Path | None): Feature Parquet path; None uses
+                default_processed_path.
+            output_prefix (str | Path | None): Output prefix without an extension; None
+                uses default_prediction_prefix.
+            input_epsg_code (str | None): CRS of pixel coordinates, passed to the
+                exporter.
+            output_epsg_code (str | None): Output raster CRS override; None uses the
+                configured epsg_code. Ignored for table and vector exports.
         """
         src_data = (
             Path(processed_path) if processed_path else self.default_processed_path
@@ -165,7 +204,7 @@ class CropClassifier:
     # --- Complete Pipeline Execution ---
 
     def run(self) -> None:
-        """Execute the entire pipeline sequentially: download_data -> build_features -> predict."""
+        """Download data, build features, and export crop predictions."""
         self.download_data()
         self.build_features()
         self.predict()

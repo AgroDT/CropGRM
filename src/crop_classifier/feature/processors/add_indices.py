@@ -2,7 +2,16 @@ import polars as pl
 
 
 def add_indices(df: pl.DataFrame) -> pl.DataFrame:
-    """Calculate indices"""
+    """Add spectral indices to a band table.
+
+    Args:
+        df (polars.DataFrame): Table containing green, blue, nir, swir1, and red
+            reflectance columns on the same numeric scale.
+
+    Returns:
+        polars.DataFrame: Input columns with dimensionless ndyi, ndmi, and wrdvi
+            index columns added or replaced.
+    """
     return df.with_columns(
         [
             (

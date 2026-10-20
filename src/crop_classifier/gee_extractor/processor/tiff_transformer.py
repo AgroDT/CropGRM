@@ -16,11 +16,14 @@ logger = logging.getLogger(__name__)
 
 
 class TiffTransformator:
-    """
-    Transform tiff timeseries from GEE to .parquet file suitable for analysis
-    """
+    """Convert Earth Engine GeoTIFF time series into pixel Parquet tables."""
 
     def __init__(self, folder: Path | str):
+        """Configure the input raster directory and expected bands.
+
+        Args:
+            folder (Path | str): Directory containing the time-series GeoTIFF files.
+        """
         self.basic_indices = BASIC_INDICES
         self.meteo_bands = METEO_INDICES
         self.folder = Path(folder)
@@ -33,9 +36,23 @@ class TiffTransformator:
         src_crs: Optional[CRS],
         target_crs: str = "EPSG:4326",
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-        """
-        Vector coordinate calculation:
-        Return flat arrays of geographical coordinates (lat, lon).
+        """Calculate flattened pixel indices and center coordinates.
+
+        Args:
+            height (int): Raster height in pixels.
+            width (int): Raster width in pixels.
+            transform (rasterio.transform.Affine): Affine transform from pixel indices
+                to source coordinates.
+            src_crs (rasterio.crs.CRS | None): Source CRS; None skips coordinate
+                transformation.
+            target_crs (str): Target CRS identifier; EPSG:4326 produces longitude and
+                latitude in degrees.
+
+        Returns:
+            tuple[numpy.ndarray, numpy.ndarray, numpy.ndarray, numpy.ndarray]: Row
+                indices, column indices, x coordinates, and y coordinates, each with
+                shape (height * width,) in row-major order. Coordinates use target_crs
+                units when transformed, otherwise source units.
         """
         rows, cols = np.indices((height, width))
         rows_flat = rows.ravel()
@@ -54,6 +71,23 @@ class TiffTransformator:
     def process_raster_series(
         self, output_parquet_path: str | Path, shp_name: str, data_type: str
     ) -> None:
+        """Write matching raster scenes as a pixel observation table.
+
+        Rows contain date, lon, lat, and the configured band columns. Coordinates
+        are transformed to EPSG:4326 when a source CRS is available. No file is
+        written if no matching scenes exist. Band values are copied without
+        applying raster masks or replacing nodata values.
+
+        Args:
+            output_parquet_path (str | Path): Parquet destination; parent directories
+                are created.
+            shp_name (str): Raster filename prefix; the final underscore-separated stem
+                component supplies the date.
+            data_type (str): Band layout selector: spectral or meteorological.
+
+        Raises:
+            ValueError: If data_type is neither spectral nor meteorological.
+        """
         files = sorted(list(self.folder.glob(f"{shp_name}*.tif")))
 
         if data_type == DATA_TYPE_SPECTRAL:

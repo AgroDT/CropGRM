@@ -7,10 +7,19 @@ from crop_classifier.gee_extractor.data_downloading.base import _BaseGEEExtracto
 
 
 class SpectralExtractor(_BaseGEEExtractor):
-    """Processing Landsat Collection 2 Level 2."""
+    """Prepare Landsat Collection 2 Level 2 spectral time series."""
 
     @staticmethod
     def _mask_and_scale_landsat(image: ee.Image) -> ee.Image:
+        """Mask flagged pixels and scale Landsat surface reflectance.
+
+        Args:
+            image (ee.Image): Landsat image with QA_PIXEL and SR_B* bands.
+
+        Returns:
+            ee.Image: Image with scaled reflectance bands and a mask excluding dilated
+                cloud, cloud, and cloud-shadow flags; acquisition time is retained.
+        """
         image = ee.Image(image)
         qa = image.select("QA_PIXEL")
         mask = (
@@ -28,6 +37,15 @@ class SpectralExtractor(_BaseGEEExtractor):
 
     @staticmethod
     def _process_landsat5(image: ee.Image) -> ee.Image:
+        """Prepare harmonized Landsat 5 reflectance bands.
+
+        Args:
+            image (ee.Image): Landsat 5 Collection 2 Level 2 image.
+
+        Returns:
+            ee.Image: Masked, scaled, and linearly adjusted blue, green, red, nir,
+                swir1, and swir2 bands with acquisition time.
+        """
         image = ee.Image(image)
         img = SpectralExtractor._mask_and_scale_landsat(image)
         bands = img.select(
@@ -44,6 +62,15 @@ class SpectralExtractor(_BaseGEEExtractor):
 
     @staticmethod
     def _process_landsat89(image: ee.Image) -> ee.Image:
+        """Prepare Landsat 8 or 9 reflectance bands.
+
+        Args:
+            image (ee.Image): Landsat 8 or 9 Collection 2 Level 2 image.
+
+        Returns:
+            ee.Image: Masked and scaled blue, green, red, nir, swir1, and swir2 bands
+                with acquisition time.
+        """
         image = ee.Image(image)
         img = SpectralExtractor._mask_and_scale_landsat(image)
         bands = img.select(
@@ -60,6 +87,30 @@ class SpectralExtractor(_BaseGEEExtractor):
         cloud_cover_limit: int = 30,
         satellites: Tuple[str, ...] = ("L5", "L8", "L9"),
     ) -> ee.ImageCollection:
+        """Merge prepared Landsat imagery for a region and date range.
+
+        Args:
+            geometry (ee.Geometry): Region used to filter intersecting images.
+            start_date (str): Inclusive start date in YYYY-MM-DD format.
+            end_date (str): Exclusive end date in YYYY-MM-DD format.
+            cloud_cover_limit (int): Exclusive scene cloud-cover threshold in percent.
+            satellites (tuple[str, ...]): Nonempty sequence containing only L5, L8,
+                or L9 sensor codes.
+
+        Returns:
+            ee.ImageCollection: Merged images containing the configured six reflectance
+                bands.
+
+        Raises:
+            ValueError: If satellites is empty or contains an unsupported sensor code.
+        """
+        if not satellites or any(
+            satellite not in ("L5", "L8", "L9") for satellite in satellites
+        ):
+            raise ValueError(
+                "satellites must be nonempty and contain only L5, L8, or L9."
+            )
+
         collections = []
         if "L5" in satellites:
             collections.append(

@@ -1,7 +1,10 @@
 import unittest
+from unittest.mock import patch
 
+import numpy as np
 import polars as pl
 
+from crop_classifier.feature.math.curves import double_logistic_function
 from crop_classifier.feature.processors.add_indices import add_indices
 from crop_classifier.feature.processors.meteo_calculator import MeteoFeatureCalculator
 from crop_classifier.feature.processors.spectral_calculator import (
@@ -54,3 +57,62 @@ class FeatureCalculatorTests(unittest.TestCase):
         self.assertAlmostEqual(result["ndyi_max"], 0.8)
         self.assertEqual(result["ndyi_doy_min"], 150)
         self.assertEqual(result["ndyi_doy_max"], 120)
+
+    def test_day_grid_uses_the_observation_year_and_integer_days(self):
+        calculator = SpectralFeatureCalculator()
+        calculator.x_values = np.array([59, 60, 61, 90, 91.9, 92, 120, 121, 304, 305])
+
+        np.testing.assert_array_equal(
+            calculator._months_for_doy(2015), [2, 3, 3, 3, 4, 4, 4, 5, 10, 11]
+        )
+        np.testing.assert_array_equal(
+            calculator._months_for_doy(2024), [2, 2, 3, 3, 3, 4, 4, 4, 10, 10]
+        )
+
+    def test_interpolated_medians_follow_calendar_month_boundaries(self):
+        calculator = SpectralFeatureCalculator()
+        calculator.x_values = np.array([90, 91, 120, 121, 273, 274, 304, 305])
+        results = {}
+        for year in [2015, 2024]:
+            data = pl.DataFrame(
+                {
+                    "field_id": [7, 7],
+                    "year": [year, year],
+                    "DOY": [90, 305],
+                    "red": [90.0, 305.0],
+                }
+            )
+            results[year] = calculator.process_spectral_features_means(data, "red")
+
+        self.assertAlmostEqual(results[2015]["median_red_fitted_4"], 105.5)
+        self.assertAlmostEqual(results[2024]["median_red_fitted_4"], 120.5)
+        self.assertAlmostEqual(results[2015]["median_red_fitted_10"], 289.0)
+        self.assertAlmostEqual(results[2024]["median_red_fitted_10"], 304.5)
+        for key in ["field_id", "red_min", "red_max", "red_doy_min", "red_doy_max"]:
+            self.assertEqual(results[2015][key], results[2024][key])
+
+    def test_curve_medians_follow_the_observation_year(self):
+        calculator = SpectralFeatureCalculator()
+        calculator.x_values = np.array([90, 91, 120, 121, 273, 274, 304, 305])
+        params = np.array([0.1, 0.9, 120.0, 260.0, 0.1, 0.1])
+        days = np.linspace(90, 305, 6)
+        values = double_logistic_function(days, *params)
+        module = "crop_classifier.feature.processors.spectral_calculator"
+
+        for year, april_days in [(2015, [91, 120]), (2024, [120, 121])]:
+            data = pl.DataFrame(
+                {"field_id": [7] * 6, "year": [year] * 6, "DOY": days, "ndmi": values}
+            )
+            with self.subTest(year=year), patch(
+                f"{module}.fit_curve", return_value=params
+            ), patch(
+                f"{module}.FOURTH_DERIVATIVE_LAMBDIFIED",
+                return_value=np.zeros_like(calculator.x_values),
+            ):
+                result = calculator.process_spectral_features_curve(
+                    data, "ndmi", calculator.bounds_config["ndmi"], values
+                )
+
+                april_values = double_logistic_function(np.array(april_days), *params)
+                expected = np.median(april_values)
+                self.assertAlmostEqual(result["median_ndmi_fitted_4"], expected)

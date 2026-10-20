@@ -9,12 +9,31 @@ from crop_classifier.config import CLASS_NAMES, DEFAULT_MODEL_PATHS, ModelType
 
 
 class CropPredictor:
-    """Downlowding and inference CatBoost model."""
+    """Load local CatBoost models and classify crop features."""
 
     def __init__(self, custom_model_paths: Dict[ModelType, Path] = None):
+        """Configure paths to the available crop models.
+
+        Args:
+            custom_model_paths (dict[ModelType, Path] | None): Optional model path
+                mapping; None or an empty mapping uses the configured defaults.
+        """
         self.model_paths = custom_model_paths or DEFAULT_MODEL_PATHS
 
     def load_model(self, model_type: Union[ModelType, str]) -> CatBoostClassifier:
+        """Load the selected CatBoost model from disk.
+
+        Args:
+            model_type (ModelType | str): Model variant or its configured string value.
+
+        Returns:
+            CatBoostClassifier: Loaded model ready for inference.
+
+        Raises:
+            ValueError: If model_type is not a supported model variant.
+            FileNotFoundError: If the model has no configured path or the file does not
+                exist.
+        """
         model_type = ModelType(model_type)
         path = self.model_paths.get(model_type)
 
@@ -29,7 +48,23 @@ class CropPredictor:
         model_type: Union[ModelType, str] = ModelType.FINETUNED,
         threshold: float = 0.5,
     ) -> pd.DataFrame:
-        """Model inference and result filtration on threshold."""
+        """Predict crop labels and reject low-confidence results.
+
+        Args:
+            df (pandas.DataFrame): Input table containing every feature named by the
+                selected model.
+            model_type (ModelType | str): Model variant or its configured string value.
+            threshold (float): Required lower bound for the maximum class probability;
+                equality is rejected.
+
+        Returns:
+            pandas.DataFrame: Copy of df with integer class and mapped class_name
+                columns; rejected rows have class 0 and an unmapped class_name.
+
+        Raises:
+            ValueError: If model_type is unsupported.
+            FileNotFoundError: If the selected model file is missing.
+        """
         model = self.load_model(model_type)
         df_result = df.copy()
 

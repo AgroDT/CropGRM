@@ -17,6 +17,22 @@ class RasterExporter(_BaseGEEExtractor):
         crs: str = "EPSG:4326",
         dtype: str = "float32",
     ) -> Path:
+        """Download an Earth Engine image as a local GeoTIFF.
+
+        Args:
+            image (ee.Image): Image containing the bands to export.
+            region (ee.Geometry): Geographic export region.
+            output_path (Path): Destination GeoTIFF path.
+            scale (int): Export pixel scale in meters.
+            crs (str): CRS identifier for the exported raster.
+            dtype (str): Export pixel data type passed to geedim.
+
+        Returns:
+            Path: Destination path supplied by the caller.
+
+        Raises:
+            ImportError: If geedim is unavailable.
+        """
         try:
             import geedim  # noqa
         except ImportError:

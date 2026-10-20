@@ -17,9 +17,10 @@ logger = logging.getLogger(__name__)
 
 
 class PredictorPipeline:
-    """Predictor calculation of meteorological and spectral features."""
+    """Build model features from spectral and meteorological time series."""
 
     def __init__(self):
+        """Initialize data preparation and feature calculators from configuration."""
         self.preparer = DataPreparer()
         self.spectral_extractor = SpectralFeatureCalculator()
         self.meteo_extractor = MeteoFeatureCalculator()
@@ -35,10 +36,18 @@ class PredictorPipeline:
         meteo_path: Union[str, Path],
         output_file: Union[str, Path],
     ):
-        """
-        Building features from meteorological and spectral data from GEE.
-        Use bands 'temperature' and 'precipitaion' (ERA5)
-                            and 'red', 'nir', 'blue', 'swir1', 'green', 'swir2' (Landsat 5, 8, 9)
+        """Write features for spatial entities shared by both datasets.
+
+        Args:
+            use_zonal_spectral (bool): Whether inputs contain field statistics instead
+                of pixel observations.
+            spectral_path (str | Path): Spectral CSV or Parquet input path.
+            meteo_path (str | Path): Meteorological CSV or Parquet input path.
+            output_file (str | Path): Destination for the combined feature Parquet file.
+
+        Raises:
+            ValueError: If no spatial IDs are shared or an input file format is
+                unsupported.
         """
         spectral_path = Path(spectral_path)
         meteo_path = Path(meteo_path)
