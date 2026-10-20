@@ -117,9 +117,7 @@ class DataPreparationTests(unittest.TestCase):
     def test_field_and_pixel_inputs_share_the_same_calendar(self):
         preparer = DataPreparer()
         field = pl.DataFrame({"field_id": [7], "20150401_red": [0.2]})
-        pixel = pl.DataFrame(
-            {"field_id": [7], "date": ["2015-04-01"], "red": [0.2]}
-        )
+        pixel = pl.DataFrame({"field_id": [7], "date": ["2015-04-01"], "red": [0.2]})
         columns = ["field_id", "date", "year", "DOY", "month", "red"]
 
         field_result = preparer.prepare_field_data(field, ["red"], ["field_id"])

@@ -31,6 +31,7 @@ class SpectralFeatureCalculator:
     Attributes:
         pipelines (dict[str, Callable]): Registered per-index feature processors.
     """
+
     def __init__(self):
         """Initialize spectral feature settings and built-in processors."""
         self.feature_config = FEATURE_CONFIG

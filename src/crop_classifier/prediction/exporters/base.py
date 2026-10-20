@@ -6,6 +6,7 @@ import pandas as pd
 
 class BaseExporter(ABC):
     """Define the interface for exporting crop predictions."""
+
     @abstractmethod
     def export(self, df: pd.DataFrame, output_prefix: str, **kwargs) -> None:
         """Export a prediction table to the chosen destination.

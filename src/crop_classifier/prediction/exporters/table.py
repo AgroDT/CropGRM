@@ -7,7 +7,6 @@ class TableExporter(BaseExporter):
     """Tabular result export."""
 
     def export(self, df: pd.DataFrame, output_prefix: str, **kwargs) -> None:
-
         """Write available prediction and spatial columns to CSV.
 
         Args:

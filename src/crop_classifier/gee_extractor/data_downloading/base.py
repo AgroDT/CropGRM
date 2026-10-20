@@ -8,6 +8,7 @@ logger = logging.getLogger(__name__)
 
 class _BaseGEEExtractor:
     """Share Earth Engine initialization across data extractors."""
+
     _is_initialized = False
 
     def __init__(

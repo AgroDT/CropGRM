@@ -32,7 +32,6 @@ class CropClassifierPipeline:
         input_epsg_code: Optional[str] = "EPSG:4326",
         output_epsg_code: Optional[str] = None,
     ) -> None:
-
         """Predict crop classes and write the requested output.
 
         Args:

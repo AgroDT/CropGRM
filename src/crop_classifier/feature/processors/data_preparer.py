@@ -177,9 +177,7 @@ class DataPreparer:
             pl.any_horizontal([pl.col(b).is_not_null() for b in available_bands])
         )
 
-        result_df = result_df.group_by(
-            [*id_cols, "date", "year", "DOY", "month"]
-        ).agg(
+        result_df = result_df.group_by([*id_cols, "date", "year", "DOY", "month"]).agg(
             [pl.col(b).drop_nulls().median().alias(b) for b in available_bands]
         )
 

@@ -20,7 +20,6 @@ class PointRasterExporter(BaseExporter):
         nodata: int = -9999,
         **kwargs,
     ) -> None:
-
         """Write pixel class predictions to a GeoTIFF grid.
 
         Args:

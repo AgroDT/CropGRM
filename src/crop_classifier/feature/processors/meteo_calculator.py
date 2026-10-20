@@ -3,11 +3,11 @@ import polars as pl
 
 class MeteoFeatureCalculator:
     """Calculate monthly weather features for each spatial entity."""
+
     def calculate_meteo_features(
         self,
         df,
     ) -> pl.DataFrame:
-
         """Aggregate monthly temperature and precipitation features.
 
         Args:
@@ -29,9 +29,8 @@ class MeteoFeatureCalculator:
             ]
         )
 
-        temp_calculated = (
-            df.group_by(["field_id", "month"])
-            .agg([pl.col("temperature").sum().alias("sum_t")])
+        temp_calculated = df.group_by(["field_id", "month"]).agg(
+            [pl.col("temperature").sum().alias("sum_t")]
         )
 
         calculated_df = com_calculated.join(

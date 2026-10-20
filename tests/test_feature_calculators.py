@@ -103,11 +103,13 @@ class FeatureCalculatorTests(unittest.TestCase):
             data = pl.DataFrame(
                 {"field_id": [7] * 6, "year": [year] * 6, "DOY": days, "ndmi": values}
             )
-            with self.subTest(year=year), patch(
-                f"{module}.fit_curve", return_value=params
-            ), patch(
-                f"{module}.FOURTH_DERIVATIVE_LAMBDIFIED",
-                return_value=np.zeros_like(calculator.x_values),
+            with (
+                self.subTest(year=year),
+                patch(f"{module}.fit_curve", return_value=params),
+                patch(
+                    f"{module}.FOURTH_DERIVATIVE_LAMBDIFIED",
+                    return_value=np.zeros_like(calculator.x_values),
+                ),
             ):
                 result = calculator.process_spectral_features_curve(
                     data, "ndmi", calculator.bounds_config["ndmi"], values

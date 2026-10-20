@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 class GEEDownloadingDataPipeline:
     """Download field statistics or pixel time series from Earth Engine."""
+
     def __init__(
         self,
         project_id: str,
