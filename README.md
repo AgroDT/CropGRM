@@ -21,7 +21,6 @@ CropGRM
 │   ├── final # output files after prediction
 │   ├── processed # preprocessed data for model predictions
 │   └── raw # input files
-├── models # pre-trained models
 ├── notebooks # examples and instructions
 ├── README.md
 └── requirements.txt
@@ -35,7 +34,7 @@ a fine-tuned model (available in [models](./models)):
 - [CropGRM-large.cbm](./src/crop_classifier/CropGRM-large.cbm) - 134 features
 - [CropGRM-optimized.cbm](./src/crop_classifier/models/CropGRM-optimized.cbm) - 82 features
 - [CropGRM-small.cbm](./src/crop_classifier/models/CropGRM-small.cbm) - 24 features
-- [finetuned_model.cbm](./src/crop_classifier/models/finetuned_model.cbm) - fine-tuned
+- [finetuned_model.cbm](./src/crop_classifier/models/CropGRM-finetuned.cbm) - fine-tuned
   CropGRM-small on local scientific center data
 
 
@@ -59,11 +58,17 @@ Tested on Python 3.12.
 - Vector dataset with field geometries (example available at
   [data/raw/fields.fgb](./data/raw/fields.fgb))
 - Meteorological data (ERA5) downloaded from Google Earth Engine (example
-  available at [data/raw/fields_meteo_data.csv](./data/raw/fields_meteo_data.csv))
+  available at [data/raw/fields_meteo_data.csv](./data/raw/fields_meteo_data.csv)
+  [data/raw/fields_meteo_data.parquet](./data/raw/fields_meteo_data.parquet)
+  for field-based and pixel-based detection respectively)
 - Spectral data (Landsat 5, 8, 9) downloaded from Google Earth Engine (example
-  available at [data/raw/fields_spectral_data.csv](./data/raw/fields_spectral_data.csv))
+  available at [data/raw/fields_spectral_data.csv](./data/raw/fields_spectral_data.csv)
+  and [data/raw/fields_spectral_data.parquet](./data/raw/fields_spectral_data.parquet)
+  for field-based and pixel-based detection respectively)
 - Preprocessed feature dataset from Google Earth Engine for each field (example
-  available at [data/processed/input_data_for_model.parquet](./data/processed/input_data_for_model.parquet))
+  available at [data/processed/fields_input.parquet](./data/processed/fields_input.parquet)
+  and [data/processed/fields_input_pixel.parquet](./data/processed/fields_input_pixel.parquet)
+  for field-based and pixel-based detection respectively)
 
 The two input datasets should have the same unique identifier for joining data.
 
