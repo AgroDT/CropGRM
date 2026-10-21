@@ -87,13 +87,13 @@ class NotebookScenarioTests(unittest.TestCase):
             patch("crop_classifier.feature.processors.spectral_calculator.N_JOBS", 1)
         )
 
-    def write_field_inputs(self, spectral_path, meteo_path):
+    def write_field_inputs(self, spectral_path, meteo_path, nrows=2):
         for destination, source in (
             (spectral_path, "fields_spectral.csv"),
             (meteo_path, "fields_meteo.csv"),
         ):
             destination.parent.mkdir(parents=True, exist_ok=True)
-            pd.read_csv(PROJECT_ROOT / "data/raw" / source, nrows=2).to_csv(
+            pd.read_csv(PROJECT_ROOT / "data/raw" / source, nrows=nrows).to_csv(
                 destination, index=False
             )
 
@@ -102,25 +102,46 @@ class NotebookScenarioTests(unittest.TestCase):
             "fields.shp", "unused", 2024, self.folder, model_type=ModelType.FINETUNED
         )
         self.write_field_inputs(
-            classifier.default_spectral_path, classifier.default_meteo_path
+            classifier.default_spectral_path,
+            classifier.default_meteo_path,
+            nrows=None,
         )
+        expected_ids = set(
+            pd.read_csv(classifier.default_spectral_path, usecols=["field_id"])["field_id"]
+        )
+        load_model = CropPredictor().load_model
+
+        def load_checked_model(model_type):
+            model = load_model(model_type)
+            features = pd.read_parquet(classifier.default_processed_path)
+            missing = set(model.feature_names_).difference(features.columns)
+            self.assertFalse(
+                missing, f"Missing model features in test dataset: {sorted(missing)}"
+            )
+            return model
+
         with (
             patch.object(classifier, "download_data") as download,
             patch.object(
                 classifier, "build_features", wraps=classifier.build_features
             ) as build,
             patch.object(classifier, "predict", wraps=classifier.predict) as predict,
+            patch.object(
+                CropPredictor, "load_model", side_effect=load_checked_model
+            ) as load,
         ):
             result = classifier.run()
         download.assert_called_once_with()
         build.assert_called_once_with()
         predict.assert_called_once_with()
+        load.assert_called_once_with(ModelType.FINETUNED)
         features = pd.read_parquet(classifier.default_processed_path)
         saved = pd.read_csv(
             classifier.default_prediction_prefix.with_suffix(".csv"),
             dtype={"class_name": result["class_name"].dtype},
         )
-        self.assertEqual(len(features), 2)
+        self.assertEqual(len(features), len(expected_ids))
+        self.assertEqual(set(features["field_id"]), expected_ids)
         self.assertEqual(set(features["field_id"]), set(result["field_id"]))
         pd.testing.assert_frame_equal(
             saved, result[["field_id", "class_name", "class"]]

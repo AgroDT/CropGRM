@@ -63,10 +63,19 @@ class CropPredictor:
                 class_name. Probability is the maximum before thresholding.
 
         Raises:
-            ValueError: If model_type is unsupported.
+            ValueError: If model_type is unsupported or required model features are
+                missing, for example because double-logistic fitting failed.
             FileNotFoundError: If the selected model file is missing.
         """
         model = self.load_model(model_type)
+        missing = [name for name in model.feature_names_ if name not in df.columns]
+        if missing:
+            raise ValueError(
+                f"Missing required model features: {', '.join(missing)}. "
+                "Check feature preparation and input data. Double-logistic features "
+                "may be unavailable if fewer than six observations remain after "
+                "DOY >= 90 filtering or fitting fails on noisy data."
+            )
         df_result = df.copy()
 
         probabilities = model.predict_proba(df_result[model.feature_names_])

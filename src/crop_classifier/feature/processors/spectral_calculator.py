@@ -1,3 +1,4 @@
+import logging
 import warnings
 from calendar import monthrange
 from typing import Callable, Dict
@@ -23,6 +24,8 @@ from crop_classifier.feature.math.curves import (
 )
 from crop_classifier.feature.math.filtering_outliers import hampel_filter
 from crop_classifier.feature.processors.add_indices import add_indices
+
+logger = logging.getLogger(__name__)
 
 
 class SpectralFeatureCalculator:
@@ -294,7 +297,8 @@ class SpectralFeatureCalculator:
 
         Returns:
             polars.DataFrame: Features joined by field_id, with available spatial
-                coordinates and nulls for missing feature results.
+                coordinates and nulls for missing feature results. Curve failures are
+                logged; features with no successful results have no output columns.
         """
         df = add_indices(df_prepared)
 
@@ -324,7 +328,20 @@ class SpectralFeatureCalculator:
             pipeline = cfg["pipeline"]
 
             results = self._run_pipeline(pipeline, index, grouped_data)
-            results = [r for r in results if r is not None]
+            successful = [r for r in results if r is not None]
+            if pipeline == "curve" and len(successful) < len(results):
+                too_short = sum(len(group) < 6 for group, _ in grouped_data)
+                failed = len(results) - len(successful) - too_short
+                logger.warning(
+                    "Double-logistic features unavailable for index '%s': "
+                    "%d groups have fewer than six observations after DOY >= 90; "
+                    "%d curve fits failed or returned invalid parameters "
+                    "(for example, due to noisy data).",
+                    index,
+                    too_short,
+                    failed,
+                )
+            results = successful
             if results:
                 all_features.append(pl.DataFrame(results))
 

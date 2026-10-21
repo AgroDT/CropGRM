@@ -13,6 +13,82 @@ from crop_classifier.feature.processors.spectral_calculator import (
 
 
 class FeatureCalculatorTests(unittest.TestCase):
+    def curve_input(self, days):
+        return pl.DataFrame(
+            {
+                "field_id": [7] * len(days),
+                "year": [2024] * len(days),
+                "DOY": days,
+                "blue": [0.1] * len(days),
+                "green": [0.2] * len(days),
+                "red": [0.1] * len(days),
+                "nir": [0.8] * len(days),
+                "swir1": [0.2] * len(days),
+            }
+        )
+
+    def test_short_curve_series_logs_reason_without_attempting_fit(self):
+        calculator = SpectralFeatureCalculator()
+        calculator.n_jobs = 1
+        calculator.feature_config = {"ndmi": {"pipeline": "curve"}}
+        data = self.curve_input([50, 90, 100, 110, 120, 130])
+        module = "crop_classifier.feature.processors.spectral_calculator"
+        with (
+            patch(f"{module}.fit_curve") as fit,
+            self.assertLogs(module, level="WARNING") as logs,
+        ):
+            result = calculator.calculate_spectral_features(data)
+        fit.assert_not_called()
+        self.assertEqual(result["field_id"].to_list(), [7])
+        self.assertEqual(result.columns, ["field_id"])
+        self.assertIn("index 'ndmi'", logs.output[0])
+        self.assertIn("1 groups have fewer than six observations", logs.output[0])
+        self.assertIn("0 curve fits failed", logs.output[0])
+
+    def test_failed_curve_fits_log_reason_and_preserve_spatial_rows(self):
+        module = "crop_classifier.feature.processors.spectral_calculator"
+        for parameters in (None, np.full(6, np.nan)):
+            with self.subTest(parameters=parameters):
+                calculator = SpectralFeatureCalculator()
+                calculator.n_jobs = 1
+                calculator.feature_config = {"ndmi": {"pipeline": "curve"}}
+                data = self.curve_input([90, 110, 130, 150, 170, 190])
+                original = data.clone()
+                with (
+                    patch(f"{module}.fit_curve", return_value=parameters) as fit,
+                    self.assertLogs(module, level="WARNING") as logs,
+                ):
+                    result = calculator.calculate_spectral_features(data)
+                fit.assert_called_once()
+                self.assertEqual(result["field_id"].to_list(), [7])
+                self.assertEqual(result.columns, ["field_id"])
+                self.assertIn(
+                    "0 groups have fewer than six observations", logs.output[0]
+                )
+                self.assertIn("1 curve fits failed", logs.output[0])
+                self.assertTrue(data.equals(original))
+
+    def test_short_series_does_not_discard_successful_field_features(self):
+        calculator = SpectralFeatureCalculator()
+        calculator.n_jobs = 1
+        calculator.feature_config = {"ndmi": {"pipeline": "curve"}}
+        short = self.curve_input([90, 110, 130, 150, 170])
+        complete = self.curve_input([90, 110, 130, 150, 170, 190]).with_columns(
+            pl.col("field_id") + 1
+        )
+        data = pl.concat([short, complete])
+        module = "crop_classifier.feature.processors.spectral_calculator"
+        parameters = np.array([0.1, 0.9, 120.0, 260.0, 0.1, 0.1])
+        with (
+            patch(f"{module}.fit_curve", return_value=parameters) as fit,
+            self.assertLogs(module, level="WARNING"),
+        ):
+            result = calculator.calculate_spectral_features(data)
+        fit.assert_called_once()
+        self.assertEqual(set(result["field_id"]), {7, 8})
+        self.assertIsNone(result.filter(pl.col("field_id") == 7)["ndmi_S"][0])
+        self.assertEqual(result.filter(pl.col("field_id") == 8)["ndmi_S"][0], 120.0)
+
     def test_spectral_indices_match_hand_calculation(self):
         data = pl.DataFrame(
             {"green": [0.4], "blue": [0.2], "nir": [0.8], "swir1": [0.3], "red": [0.1]}
