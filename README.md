@@ -22,16 +22,18 @@ CropGRM
 │   ├── processed # preprocessed data for model predictions
 │   └── raw # input files
 ├── notebooks # examples and instructions
+├── src/crop_classifier # classification package and models
 ├── README.md
-└── requirements.txt
+├── pyproject.toml # package metadata and dependencies
+└── uv.lock # locked dependencies
 ```
 
 ## Models
 
 The project includes three base models with different numbers of predictors and
-a fine-tuned model (available in [models](./models)):
+a fine-tuned model (available in [models](./src/crop_classifier/models)):
 
-- [CropGRM-large.cbm](./src/crop_classifier/CropGRM-large.cbm) - 134 features
+- [CropGRM-large.cbm](./src/crop_classifier/models/CropGRM-large.cbm) - 134 features
 - [CropGRM-optimized.cbm](./src/crop_classifier/models/CropGRM-optimized.cbm) - 82 features
 - [CropGRM-small.cbm](./src/crop_classifier/models/CropGRM-small.cbm) - 24 features
 - [finetuned_model.cbm](./src/crop_classifier/models/CropGRM-finetuned.cbm) - fine-tuned
@@ -53,6 +55,35 @@ Examples and instructions are available in [notebooks](./notebooks):
 
 Tested on Python 3.12.
 
+To predict from the included field features without downloading data:
+
+```python
+from crop_classifier import CropClassifier, ModelType, OutputFormat
+
+classifier = CropClassifier(
+    shapefile_path="data/raw/fields.shp",
+    output_dir="data",
+    use_zonal_spectral=True,
+    model_type=ModelType.FINETUNED,
+    threshold=0.5,
+)
+predictions = classifier.predict(processed_path="data/processed/fields_input.parquet")
+classifier.save(OutputFormat.VECTOR)
+classifier.save(OutputFormat.RASTER, output_epsg_code="EPSG:32637", pixel_size=30)
+```
+
+`predict()` returns all input columns plus `class`, `class_name`, and `probability`,
+and always writes a CSV. A maximum class probability at or below `threshold`
+produces class 0. `save()` reuses the last predictions or accepts a DataFrame or
+saved CSV through `predictions=`, without running inference again.
+
+For the full workflow, also set `gee_project` and `year`, then call `run()`:
+`download_data()` → `build_features()` → `predict()` → export to `output_format`.
+Downloads require an authenticated Earth Engine session and an input shapefile;
+the extraction period is April 1 through October 31 of `year`.
+To reuse raw data, call `build_features(spectral_path=..., meteo_path=...)` and
+pass the returned Parquet path to `predict(processed_path=...)`.
+
 ## Input data
 
 - Vector dataset with field geometries (example available at
@@ -70,9 +101,23 @@ Tested on Python 3.12.
   and [data/processed/fields_input_pixel.parquet](./data/processed/fields_input_pixel.parquet)
   for field-based and pixel-based detection respectively)
 
-The two input datasets should have the same unique identifier for joining data.
+The spectral and meteorological datasets must share spatial identifiers:
+`field_id` for field statistics, or matching `lat`/`lon` for pixels (used to
+generate `field_id` when absent). Only shared spatial IDs are processed.
+Use `use_zonal_spectral=True` for field CSV downloads and `False` for pixel
+Parquet downloads. Features are always saved as Parquet; the default path is
+`<output_dir>/processed/<input_stem>_input.parquet` in both modes, so use separate
+output directories or explicit paths to retain both.
 
-The results can be obtained in tabular, vector, or raster format.
+Results use `OutputFormat.TABLE` (CSV), `VECTOR` (FlatGeobuf), or `RASTER`
+(GeoTIFF). The default prefix is `<output_dir>/final/<input_stem>`;
+`output_prefix` omits the extension. CSV contains available spatial identifiers,
+`class`, and `class_name`; features and `probability` remain in the returned
+DataFrame. Vector and field raster export require field geometry with `field_id`.
+Pixel raster export uses `lat`/`lon` and requires `output_epsg_code` in `save()`
+or `epsg_code` in the constructor; `input_epsg_code` defaults to `EPSG:4326`.
+Raster `pixel_size` defaults to 30 in output CRS units (metres for a metric CRS,
+degrees for a geographic CRS); it can also be passed to `run()` for raster output.
 
 ## License and Attribution
 
