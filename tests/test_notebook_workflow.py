@@ -107,7 +107,9 @@ class NotebookScenarioTests(unittest.TestCase):
             nrows=None,
         )
         expected_ids = set(
-            pd.read_csv(classifier.default_spectral_path, usecols=["field_id"])["field_id"]
+            pd.read_csv(classifier.default_spectral_path, usecols=["field_id"])[
+                "field_id"
+            ]
         )
         load_model = CropPredictor().load_model
 
