@@ -33,8 +33,22 @@ class VectorExporter(BaseExporter):
         if not fields_geometry_path:
             raise ValueError("For vector exporting 'fields_geometry_path' required.")
 
-        gdf = gpd.read_file(fields_geometry_path).merge(
-            df[["field_id", "class", "class_name"]], on="field_id", how="left"
+        gdf = gpd.read_file(fields_geometry_path)
+        if "field_id" not in gdf.columns or "geometry" not in gdf.columns:
+            raise ValueError("Field geometry requires field_id and geometry columns.")
+        if (
+            gdf.empty
+            or not (
+                gdf.geometry.notna() & ~gdf.geometry.is_empty & gdf.geometry.is_valid
+            ).any()
+        ):
+            raise ValueError("At least one usable geometry is required.")
+        gdf = gdf.assign(field_id=gdf["field_id"].astype(str)).merge(
+            df[["field_id", "class", "class_name"]].assign(
+                field_id=df["field_id"].astype(str)
+            ),
+            on="field_id",
+            how="left",
         )
 
         gdf[["field_id", "class_name", "geometry"]].to_file(

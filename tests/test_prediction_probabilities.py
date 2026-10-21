@@ -62,6 +62,9 @@ class PredictionProbabilityTests(unittest.TestCase):
                     data[["feature_a", "feature_b"]],
                 )
                 self.assertEqual(result["class"].tolist(), classes)
+                np.testing.assert_array_equal(
+                    result["probability"], [0.7, 0.7, 0.5, 0.4, 0.8]
+                )
                 self.assertTrue(pd.api.types.is_integer_dtype(result["class"]))
 
                 for actual, expected in zip(result["class_name"], names):

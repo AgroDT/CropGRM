@@ -16,7 +16,7 @@ class PointRasterExporter(BaseExporter):
         output_prefix: str,
         input_epsg_code: str = "EPSG:4326",
         output_epsg_code: str = None,
-        pixel_size: int = 30,
+        pixel_size: float = 30.0,
         nodata: int = -9999,
         **kwargs,
     ) -> None:
@@ -30,12 +30,13 @@ class PointRasterExporter(BaseExporter):
             output_epsg_code (str | None): CRS assigned to the new raster; a nonempty
                 value is required. A value differing from input_epsg_code also triggers
                 reprojection.
-            pixel_size (int | float): Positive grid spacing in output units, or input
-                units when no reprojection occurs. The caller must choose a value
-                matching the CRS units, such as degrees for a geographic CRS.
+            pixel_size (float): Finite positive spacing in output CRS units: metres
+                for a metric CRS and degrees for a geographic CRS.
             nodata (int): Fill value for empty cells, representable as int16.
             **kwargs (object): Additional export options, ignored by this exporter.
         """
+        if not np.isfinite(pixel_size) or pixel_size <= 0:
+            raise ValueError("pixel_size must be finite and positive.")
         if output_epsg_code and input_epsg_code != output_epsg_code:
             transformer = Transformer.from_crs(
                 input_epsg_code, output_epsg_code, always_xy=True

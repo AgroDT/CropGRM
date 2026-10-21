@@ -1,3 +1,4 @@
+from math import ceil, isfinite
 from pathlib import Path
 from typing import Union
 
@@ -20,14 +21,13 @@ class PolygonRasterExporter(BaseExporter):
         output_prefix: str,
         fields_geometry_path: Union[str, Path] = None,
         output_epsg_code: str = None,
-        pixel_size: int = 30,
-        nodata: int = -9999,
+        pixel_size: float = 30.0,
+        nodata: int = 255,
         **kwargs,
     ) -> None:
         """Rasterize field classes to a single-band GeoTIFF.
 
-        Grid dimensions are truncated to whole pixels, excluding partial edge
-        cells from the output extent.
+        Grid dimensions include partial edge cells at the requested resolution.
 
         Args:
             df (pandas.DataFrame): Predictions containing field_id and class; missing
@@ -36,31 +36,63 @@ class PolygonRasterExporter(BaseExporter):
             fields_geometry_path (str | Path | None): Polygon file with geometry and
                 field_id; a path is required.
             output_epsg_code (str | None): Target CRS; None retains the polygon CRS.
-            pixel_size (int | float): Positive pixel dimensions in the raster CRS units.
-                The caller must choose a value matching those units, such as degrees
-                for a geographic CRS. Bounds must span at least one pixel per axis.
-            nodata (int): Background value, representable as int16.
+            pixel_size (float): Finite positive spacing in output CRS units: metres
+                for a metric CRS and degrees for a geographic CRS.
+            nodata (int): uint8 background value, distinct from class codes and 0.
             **kwargs (object): Additional export options, ignored by this exporter.
 
         Raises:
-            ValueError: If fields_geometry_path is missing.
+            ValueError: If inputs, geometries, bounds, or class codes are invalid.
         """
         if not fields_geometry_path:
             raise ValueError(
                 "For polygon rasterization 'fields_geometry_path' required."
             )
+        if not isfinite(pixel_size) or pixel_size <= 0:
+            raise ValueError("pixel_size must be finite and positive.")
+        if not isfinite(nodata) or not 1 <= nodata <= 255 or nodata != int(nodata):
+            raise ValueError("nodata must be an integer in 1..255.")
 
-        gdf = gpd.read_file(fields_geometry_path).merge(
-            df[["field_id", "class"]], on="field_id", how="left"
+        gdf = gpd.read_file(fields_geometry_path)
+        if "field_id" not in gdf.columns or "geometry" not in gdf.columns:
+            raise ValueError("Field geometry requires field_id and geometry columns.")
+        gdf = gdf.assign(field_id=gdf["field_id"].astype(str)).merge(
+            df[["field_id", "class"]].assign(field_id=df["field_id"].astype(str)),
+            on="field_id",
+            how="left",
         )
-        gdf["class"] = gdf["class"].fillna(0).astype(int)
-
         if output_epsg_code and gdf.crs != output_epsg_code:
             gdf = gdf.to_crs(output_epsg_code)
 
+        gdf = gdf.loc[
+            gdf.geometry.notna() & ~gdf.geometry.is_empty & gdf.geometry.is_valid
+        ].copy()
+        if gdf.empty:
+            raise ValueError("At least one usable geometry is required.")
+
+        classes = gdf["class"].fillna(0)
+        if not classes.map(
+            lambda value: (
+                isfinite(value)
+                and 0 <= value <= 254
+                and value == int(value)
+                and value != nodata
+            )
+        ).all():
+            raise ValueError(
+                "Class codes must be integers in 0..254, distinct from nodata."
+            )
+        gdf["class"] = classes.astype("uint8")
+
         xmin, ymin, xmax, ymax = gdf.total_bounds
-        width = int((xmax - xmin) / pixel_size)
-        height = int((ymax - ymin) / pixel_size)
+        if not all(isfinite(value) for value in (xmin, ymin, xmax, ymax)) or not (
+            xmin < xmax and ymin < ymax
+        ):
+            raise ValueError(
+                "Geometry bounds must be finite with positive width and height."
+            )
+        width = ceil((xmax - xmin) / pixel_size)
+        height = ceil((ymax - ymin) / pixel_size)
 
         transform = from_origin(
             west=xmin, north=ymax, xsize=pixel_size, ysize=pixel_size
@@ -71,7 +103,7 @@ class PolygonRasterExporter(BaseExporter):
             out_shape=(height, width),
             fill=nodata,
             transform=transform,
-            dtype="int16",
+            dtype="uint8",
             all_touched=True,
         )
 
@@ -79,8 +111,7 @@ class PolygonRasterExporter(BaseExporter):
         classes = sorted(gdf["class"].unique())
 
         colormap = {
-            int(cls): tuple(int(c * 255) for c in cmap(i)[:3])
-            for i, cls in enumerate(classes)
+            int(cls): tuple(int(c * 255) for c in cmap(int(cls))[:3]) for cls in classes
         }
 
         with rasterio.open(

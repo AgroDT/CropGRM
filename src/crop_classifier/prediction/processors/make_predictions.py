@@ -59,7 +59,8 @@ class CropPredictor:
 
         Returns:
             pandas.DataFrame: Copy of df with integer class and mapped class_name
-                columns; rejected rows have class 0 and an unmapped class_name.
+                and probability columns; rejected rows have class 0 and an unmapped
+                class_name. Probability is the maximum before thresholding.
 
         Raises:
             ValueError: If model_type is unsupported.
@@ -71,6 +72,7 @@ class CropPredictor:
         probabilities = model.predict_proba(df_result[model.feature_names_])
 
         max_probabilities = np.max(probabilities, axis=1)
+        df_result["probability"] = max_probabilities
         predicted_indices = np.argmax(probabilities, axis=1)
         predicted_classes = [model.classes_[idx] for idx in predicted_indices]
 

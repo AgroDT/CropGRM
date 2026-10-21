@@ -42,7 +42,8 @@ class NotebookWorkflowTests(unittest.TestCase):
                         set(model.feature_names_).issubset(features.columns)
                     )
 
-            classifier.predict(processed_path=feature_path)
+            result = classifier.predict(processed_path=feature_path)
+            self.assertIsInstance(result, pd.DataFrame)
             prediction_path = output_dir / "final/fields.csv"
             predictions = pd.read_csv(prediction_path)
 
@@ -50,6 +51,9 @@ class NotebookWorkflowTests(unittest.TestCase):
             self.assertEqual(set(predictions["field_id"]), set(features["field_id"]))
             self.assertTrue({"class", "class_name"}.issubset(predictions.columns))
             self.assertTrue(predictions["class"].between(0, 16).all())
+            self.assertEqual(
+                list(predictions.columns), ["field_id", "class_name", "class"]
+            )
 
             classifier.model_type = ModelType.SMALL
             classifier.predict(
