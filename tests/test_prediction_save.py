@@ -23,9 +23,9 @@ class PredictionSaveTests(unittest.TestCase):
             {"field_id": ["001", "002"], "feature": [0.12345678901234567, 2.0]}
         )
         self.table = self.features.assign(
+            probability=[0.8, 0.9],
             **{"class": [1, 7]},
             class_name=["winter wheat", "sunflower"],
-            probability=[0.8, 0.9],
         )
         self.fields = gpd.GeoDataFrame(
             {"field_id": ["001", "002"]},
