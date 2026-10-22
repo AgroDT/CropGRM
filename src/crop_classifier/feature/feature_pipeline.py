@@ -46,8 +46,8 @@ class PredictorPipeline:
             output_file (str | Path): Destination for the combined feature Parquet file.
 
         Raises:
-            ValueError: If no spatial IDs are shared or an input file format is
-                unsupported.
+            ValueError: If required input bands or shared spatial IDs are missing,
+                or an input file format is unsupported.
         """
         spectral_path = Path(spectral_path)
         meteo_path = Path(meteo_path)
@@ -61,6 +61,13 @@ class PredictorPipeline:
 
         lazy_spectral = self.preparer.read_dataset(spectral_path)
         lazy_meteo = self.preparer.read_dataset(meteo_path)
+
+        self.preparer.validate_bands(
+            lazy_spectral, self.basic_indices, "spectral", spectral_path
+        )
+        self.preparer.validate_bands(
+            lazy_meteo, self.meteo_bands, "meteorological", meteo_path
+        )
 
         lazy_spectral = self.preparer.ensure_field_id(lazy_spectral, id_cols)
         lazy_meteo = self.preparer.ensure_field_id(lazy_meteo, id_cols)

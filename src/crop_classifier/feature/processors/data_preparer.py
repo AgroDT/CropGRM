@@ -3,9 +3,31 @@ from typing import List, Union
 
 import polars as pl
 
+from crop_classifier.config import BASIC_INDICES, METEO_INDICES
+
 
 class DataPreparer:
     """Normalize field and pixel observations for feature calculation."""
+
+    @staticmethod
+    def validate_bands(
+        df: pl.LazyFrame, required_bands: List[str], role: str, path: Union[str, Path]
+    ) -> None:
+        """Check required bands in long columns or wide field column suffixes."""
+        columns = df.collect_schema().names()
+        if "date" in columns:
+            band_names = set(columns)
+        else:
+            band_names = {c.rsplit("_", 1)[-1] for c in columns if "_" in c}
+
+        detected = band_names.intersection([*BASIC_INDICES, *METEO_INDICES])
+        missing = set(required_bands) - detected
+        if missing:
+            raise ValueError(
+                f"Invalid {role} input '{path}': "
+                f"missing required bands: {sorted(missing)}; "
+                f"detected bands: {sorted(detected)}."
+            )
 
     @staticmethod
     def read_dataset(path: Union[str, Path]) -> pl.LazyFrame:
