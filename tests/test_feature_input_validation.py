@@ -10,6 +10,61 @@ from crop_classifier.feature.feature_pipeline import PredictorPipeline
 
 
 class FeatureInputValidationTests(unittest.TestCase):
+    def test_mixed_or_mismatched_years_are_rejected_before_feature_calculation(self):
+        for wide in (False, True):
+            for spectral_years, meteo_years in (
+                ([2023, 2024], [2024, 2024]),
+                ([2024, 2024], [2023, 2024]),
+                ([2023, 2023], [2024, 2024]),
+            ):
+                with (
+                    self.subTest(wide=wide, spectral=spectral_years, meteo=meteo_years),
+                    tempfile.TemporaryDirectory() as directory,
+                ):
+                    root = Path(directory)
+                    paths = [root / "spectral.csv", root / "meteo.parquet"]
+                    for path, years, bands in zip(
+                        paths,
+                        [spectral_years, meteo_years],
+                        [BASIC_INDICES, METEO_INDICES],
+                    ):
+                        if wide:
+                            data = {"field_id": [1, 2]}
+                            for year in set(years):
+                                for band in bands:
+                                    data[f"{year}0401_{band}"] = [
+                                        0.2 if observed_year == year else None
+                                        for observed_year in years
+                                    ]
+                        else:
+                            data = {
+                                "field_id": [1, 2],
+                                "date": [f"{year}-04-01" for year in years],
+                                **{band: [0.2, 0.2] for band in bands},
+                            }
+                        frame = pl.DataFrame(data)
+                        if path.suffix == ".csv":
+                            frame.write_csv(path)
+                        else:
+                            frame.write_parquet(path)
+                    output = root / "features.parquet"
+                    output.write_bytes(b"previous output")
+                    pipeline = PredictorPipeline()
+                    pipeline.chunk_size = 1
+                    with (
+                        patch.object(
+                            pipeline.spectral_extractor, "calculate_spectral_features"
+                        ) as spectral,
+                        patch.object(
+                            pipeline.meteo_extractor, "calculate_meteo_features"
+                        ) as meteo,
+                        self.assertRaisesRegex(ValueError, "one common calendar year"),
+                    ):
+                        pipeline.build_features(True, *paths, output)
+                    spectral.assert_not_called()
+                    meteo.assert_not_called()
+                    self.assertEqual(output.read_bytes(), b"previous output")
+
     def write_input(self, path, bands, wide=False, zonal=True):
         data = {"field_id": [7]} if zonal else {"lat": [51.0], "lon": [40.0]}
         if not wide:

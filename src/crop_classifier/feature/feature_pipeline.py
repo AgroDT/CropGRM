@@ -47,7 +47,8 @@ class PredictorPipeline:
 
         Raises:
             ValueError: If required input bands or shared spatial IDs are missing,
-                or an input file format is unsupported.
+                an input file format is unsupported, or observations do not belong
+                to one common calendar year.
         """
         spectral_path = Path(spectral_path)
         meteo_path = Path(meteo_path)
@@ -68,6 +69,21 @@ class PredictorPipeline:
         self.preparer.validate_bands(
             lazy_meteo, self.meteo_bands, "meteorological", meteo_path
         )
+
+        spectral_years = self.preparer.observation_years(
+            lazy_spectral, self.basic_indices
+        )
+        meteo_years = self.preparer.observation_years(lazy_meteo, self.meteo_bands)
+        if (
+            len(spectral_years) != 1
+            or len(meteo_years) != 1
+            or spectral_years != meteo_years
+        ):
+            raise ValueError(
+                "Feature preparation requires one common calendar year: "
+                f"spectral years={sorted(spectral_years)}, "
+                f"meteorological years={sorted(meteo_years)}."
+            )
 
         lazy_spectral = self.preparer.ensure_field_id(lazy_spectral, id_cols)
         lazy_meteo = self.preparer.ensure_field_id(lazy_meteo, id_cols)

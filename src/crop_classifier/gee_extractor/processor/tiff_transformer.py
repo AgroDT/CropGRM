@@ -69,14 +69,19 @@ class TiffTransformator:
         return rows_flat, cols_flat, np.array(lons), np.array(lats)
 
     def process_raster_series(
-        self, output_parquet_path: str | Path, shp_name: str, data_type: str
+        self,
+        output_parquet_path: str | Path,
+        shp_name: str,
+        data_type: str,
+        *,
+        scene_paths: list[Path] | None = None,
     ) -> None:
         """Write matching raster scenes as a pixel observation table.
 
         Rows contain date, lon, lat, and the configured band columns. Coordinates
         are transformed to EPSG:4326 when a source CRS is available. No file is
-        written if no matching scenes exist. Band values are copied without
-        applying raster masks or replacing nodata values.
+        written if no matching scenes exist in directory mode. Masked band values
+        are stored as nulls.
 
         Args:
             output_parquet_path (str | Path): Parquet destination; parent directories
@@ -84,11 +89,19 @@ class TiffTransformator:
             shp_name (str): Raster filename prefix; the final underscore-separated stem
                 component supplies the date.
             data_type (str): Band layout selector: spectral or meteorological.
+            scene_paths (list[Path] | None): Exact scene files for this operation;
+                None discovers files by prefix for standalone conversion.
 
         Raises:
-            ValueError: If data_type is neither spectral nor meteorological.
+            ValueError: If data_type is invalid or an explicit scene list is empty.
         """
-        files = sorted(list(self.folder.glob(f"{shp_name}*.tif")))
+        files = (
+            sorted(self.folder.glob(f"{shp_name}*.tif"))
+            if scene_paths is None
+            else scene_paths
+        )
+        if scene_paths is not None and not files:
+            raise ValueError("No raster scenes supplied for the current operation.")
 
         if data_type == DATA_TYPE_SPECTRAL:
             band_names = self.basic_indices
@@ -117,7 +130,9 @@ class TiffTransformator:
                         height, width, ds.transform, ds.crs
                     )
 
-                    bands_data = ds.read(list(range(1, len(band_names) + 1)))
+                    bands_data = ds.read(
+                        list(range(1, len(band_names) + 1)), masked=True
+                    )
                     bands_flat = bands_data.reshape(len(band_names), -1).T
 
                     data_dict = {
@@ -127,7 +142,10 @@ class TiffTransformator:
                     }
 
                     for i, b_name in enumerate(band_names):
-                        data_dict[b_name] = bands_flat[:, i]
+                        values = bands_flat[:, i]
+                        data_dict[b_name] = pa.array(
+                            values.data, mask=np.ma.getmaskarray(values)
+                        )
 
                     arrow_table = pa.Table.from_pydict(data_dict)
 

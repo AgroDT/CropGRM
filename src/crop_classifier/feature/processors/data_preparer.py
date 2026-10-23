@@ -31,7 +31,7 @@ class DataPreparer:
 
     @staticmethod
     def read_dataset(path: Union[str, Path]) -> pl.LazyFrame:
-        """Open a supported table as a lazy dataset.
+        """Open a supported table with string field identifiers.
 
         Args:
             path (str | Path): Input path ending in .parquet or .csv, with
@@ -45,11 +45,30 @@ class DataPreparer:
         """
         path_str = str(path)
         if path_str.endswith(".parquet"):
-            return pl.scan_parquet(path)
+            df = pl.scan_parquet(path)
         elif path_str.endswith(".csv"):
-            return pl.scan_csv(path)
+            df = pl.scan_csv(path, schema_overrides={"field_id": pl.String})
         else:
             raise ValueError(f"Unsupported data format: {path}")
+        if "field_id" in df.collect_schema().names():
+            df = df.with_columns(pl.col("field_id").cast(pl.String))
+        return df
+
+    def observation_years(self, df: pl.LazyFrame, bands: List[str]) -> set[int]:
+        """Read observation years from dates or wide measurement column names."""
+        columns = df.collect_schema().names()
+        if "date" in columns:
+            dates = df.select("date").unique().collect()
+        else:
+            date_strings = {
+                column.rsplit("_", 2)[-2]
+                for column in columns
+                if "_" in column and column.rsplit("_", 1)[-1] in bands
+            }
+            dates = pl.DataFrame({"date": sorted(date_strings)}).with_columns(
+                pl.col("date").str.strptime(pl.Date, "%Y%m%d")
+            )
+        return set(self.add_doy_and_month(dates)["year"].to_list())
 
     @staticmethod
     def add_doy_and_month(df: pl.DataFrame) -> pl.DataFrame:

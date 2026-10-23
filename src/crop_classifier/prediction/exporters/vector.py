@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 from typing import Union
 
@@ -5,6 +6,8 @@ import geopandas as gpd
 import pandas as pd
 
 from crop_classifier.prediction.exporters.base import BaseExporter
+
+logger = logging.getLogger(__name__)
 
 
 class VectorExporter(BaseExporter):
@@ -43,6 +46,15 @@ class VectorExporter(BaseExporter):
             ).any()
         ):
             raise ValueError("At least one usable geometry is required.")
+        unmatched = (
+            ~gdf["field_id"].astype(str).isin(df["field_id"].astype(str))
+        ).sum()
+        if unmatched:
+            logger.warning(
+                "%d field geometries have no matching prediction field_id; "
+                "their vector labels will be missing.",
+                unmatched,
+            )
         gdf = gdf.assign(field_id=gdf["field_id"].astype(str)).merge(
             df[["field_id", "class", "class_name"]].assign(
                 field_id=df["field_id"].astype(str)

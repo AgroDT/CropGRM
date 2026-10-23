@@ -1,4 +1,5 @@
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import ee
 
@@ -17,7 +18,7 @@ class RasterExporter(_BaseGEEExtractor):
         crs: str = "EPSG:4326",
         dtype: str = "float32",
     ) -> Path:
-        """Download an Earth Engine image as a local GeoTIFF.
+        """Download a GeoTIFF and replace the destination only after success.
 
         Args:
             image (ee.Image): Image containing the bands to export.
@@ -40,5 +41,8 @@ class RasterExporter(_BaseGEEExtractor):
         prep = image.gd.prepareForExport(
             crs=crs, scale=scale, region=region, dtype=dtype
         )
-        prep.gd.toGeoTIFF(str(output_path))
+        with TemporaryDirectory(dir=output_path.parent) as directory:
+            downloaded_path = Path(directory) / output_path.name
+            prep.gd.toGeoTIFF(str(downloaded_path))
+            downloaded_path.replace(output_path)
         return output_path

@@ -63,6 +63,19 @@ class SpectralFeatureCalculator:
         month_ends = np.cumsum([monthrange(year, month)[1] for month in range(1, 13)])
         return np.searchsorted(month_ends, self.x_values.astype(int)) + 1
 
+    @staticmethod
+    def _prepare_index_group(group_df, index, precomputed_values):
+        """Select finite index observations and aligned cached values after DOY 90."""
+        group_df = group_df.filter(pl.col("DOY") >= 90)
+        values = group_df[index].to_numpy().astype(float)
+        valid = np.isfinite(values)
+        if precomputed_values is None:
+            values = hampel_filter(values[valid], 3)
+        else:
+            valid &= np.isfinite(precomputed_values)
+            values = precomputed_values[valid]
+        return group_df.filter(pl.Series(valid)), values
+
     def process_spectral_features_means(self, group_df, index, precomputed_values=None):
         """Summarize a linearly interpolated spectral time series.
 
@@ -79,18 +92,13 @@ class SpectralFeatureCalculator:
         Returns:
             dict[str, object] | None: Field ID, index extrema and their days of year,
                 and April-to-October interpolated medians; None if fewer than two
-                observations remain.
+                finite observations remain after DOY filtering.
         """
-        group_df = group_df.filter(pl.col("DOY") >= 90)
+        group_df, y = self._prepare_index_group(group_df, index, precomputed_values)
         if len(group_df) < 2:
             return None
 
         x = group_df["DOY"].to_numpy().astype(float)
-        y = (
-            precomputed_values
-            if precomputed_values is not None
-            else hampel_filter(group_df[index].to_numpy().astype(float), 3)
-        )
 
         f = interp1d(x, y, kind="linear", fill_value="extrapolate")
         y_interp = f(self.x_values)
@@ -134,18 +142,13 @@ class SpectralFeatureCalculator:
         Returns:
             dict[str, object] | None: Field ID, fitted parameters, extrema, growth and
                 decay features, and monthly medians; times are days of year. None if
-                fewer than six observations remain or the fit is invalid.
+                fewer than six finite observations remain or the fit is invalid.
         """
-        group_df = group_df.filter(pl.col("DOY") >= 90)
+        group_df, y = self._prepare_index_group(group_df, index, precomputed_values)
         if len(group_df) < 6:
             return None
 
         x = group_df["DOY"].to_numpy().astype(float)
-        y = (
-            precomputed_values
-            if precomputed_values is not None
-            else hampel_filter(group_df[index].to_numpy().astype(float), 3)
-        )
 
         params = fit_curve(x, y, bounds)
         if params is None or np.isnan(params).any():
@@ -228,17 +231,12 @@ class SpectralFeatureCalculator:
 
         Returns:
             dict[str, object] | None: Field ID, filtered index extrema, and their
-                days of year; None if no observations remain after DOY >= 90 filtering.
+                days of year; None if no finite observations remain after DOY filtering.
         """
-        group_df = group_df.filter(pl.col("DOY") >= 90)
+        group_df, y = self._prepare_index_group(group_df, index, precomputed_values)
         if len(group_df) == 0:
             return None
         x = group_df["DOY"].to_numpy().astype(float)
-        y = (
-            precomputed_values
-            if precomputed_values is not None
-            else hampel_filter(group_df[index].to_numpy().astype(float), 3)
-        )
 
         result = {"field_id": group_df["field_id"][0]}
         result[f"{index}_min"] = float(np.min(y))
@@ -315,9 +313,10 @@ class SpectralFeatureCalculator:
             for index in self.feature_config.keys():
                 if index in filtered_group.columns:
                     values = filtered_group[index].to_numpy().astype(float)
-                    hampel_cache[index] = (
-                        hampel_filter(values, 3) if len(values) > 0 else None
-                    )
+                    valid = np.isfinite(values)
+                    filtered_values = np.full(values.shape, np.nan)
+                    filtered_values[valid] = hampel_filter(values[valid], 3)
+                    hampel_cache[index] = filtered_values
 
             grouped_data.append((filtered_group, hampel_cache))
 
@@ -330,11 +329,15 @@ class SpectralFeatureCalculator:
             results = self._run_pipeline(pipeline, index, grouped_data)
             successful = [r for r in results if r is not None]
             if pipeline == "curve" and len(successful) < len(results):
-                too_short = sum(len(group) < 6 for group, _ in grouped_data)
+                too_short = sum(
+                    group.filter(pl.col(index).is_finite()).height < 6
+                    for group, _ in grouped_data
+                )
                 failed = len(results) - len(successful) - too_short
                 logger.warning(
                     "Double-logistic features unavailable for index '%s': "
-                    "%d groups have fewer than six observations after DOY >= 90; "
+                    "%d groups have fewer than six observations after DOY >= 90 "
+                    "and finite-value filtering; "
                     "%d curve fits failed or returned invalid parameters "
                     "(for example, due to noisy data).",
                     index,

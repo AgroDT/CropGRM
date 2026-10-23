@@ -36,7 +36,30 @@ class DataPreparationTests(unittest.TestCase):
         self.assertEqual(result["month"].to_list(), [4, 4])
         self.assertEqual(result["red"].to_list(), [0.2, 0.3])
         self.assertEqual(result["nir"].to_list(), [0.8, 0.7])
-        self.assertEqual(result["field_id"].to_list(), [7, 7])
+        self.assertEqual(result["field_id"].to_list(), ["7", "7"])
+
+    def test_csv_preserves_leading_zeros_in_field_ids(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "spectral.csv"
+            path.write_text("field_id,20240401_red\n001,0.2\n1,0.4\n", encoding="utf8")
+            preparer = DataPreparer()
+            data = preparer.read_dataset(path).collect()
+            result = preparer.prepare_field_data(data, ["red"], ["field_id"])
+        self.assertEqual(result["field_id"].to_list(), ["001", "1"])
+
+    def test_csv_without_field_id_keeps_coordinate_columns(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "pixels.csv"
+            path.write_text("lat,lon,date,red\n51,40,2024-04-01,0.2\n", encoding="utf8")
+            data = DataPreparer.read_dataset(path).collect()
+        self.assertEqual(data.columns, ["lat", "lon", "date", "red"])
+
+    def test_parquet_field_ids_are_normalized_to_strings(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "fields.parquet"
+            pl.DataFrame({"field_id": [1, 2]}).write_parquet(path)
+            data = DataPreparer.read_dataset(path).collect()
+        self.assertEqual(data["field_id"].to_list(), ["1", "2"])
 
     def test_pixel_rows_receive_spatial_id_and_calendar_features(self):
         data = pl.DataFrame(

@@ -1,3 +1,4 @@
+import logging
 from math import ceil, isfinite
 from pathlib import Path
 from typing import Union
@@ -10,6 +11,8 @@ from rasterio.features import rasterize
 from rasterio.transform import from_origin
 
 from crop_classifier.prediction.exporters.base import BaseExporter
+
+logger = logging.getLogger(__name__)
 
 
 class PolygonRasterExporter(BaseExporter):
@@ -56,6 +59,15 @@ class PolygonRasterExporter(BaseExporter):
         gdf = gpd.read_file(fields_geometry_path)
         if "field_id" not in gdf.columns or "geometry" not in gdf.columns:
             raise ValueError("Field geometry requires field_id and geometry columns.")
+        unmatched = (
+            ~gdf["field_id"].astype(str).isin(df["field_id"].astype(str))
+        ).sum()
+        if unmatched:
+            logger.warning(
+                "%d field geometries have no matching prediction field_id; "
+                "their raster classes will be filled with 0.",
+                unmatched,
+            )
         gdf = gdf.assign(field_id=gdf["field_id"].astype(str)).merge(
             df[["field_id", "class"]].assign(field_id=df["field_id"].astype(str)),
             on="field_id",

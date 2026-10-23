@@ -13,6 +13,72 @@ from crop_classifier.feature.processors.spectral_calculator import (
 
 
 class FeatureCalculatorTests(unittest.TestCase):
+    def test_missing_index_values_keep_dates_aligned_before_fitting(self):
+        calculator = SpectralFeatureCalculator()
+        calculator.n_jobs = 1
+        calculator.feature_config = {"ndmi": {"pipeline": "curve"}}
+        data = self.curve_input([90, 100, 110, 120, 130, 140, 150]).with_columns(
+            pl.Series("swir1", [0.2, None, 0.2, 0.2, 0.2, 0.2, 0.2])
+        )
+        module = "crop_classifier.feature.processors.spectral_calculator"
+        with patch(f"{module}.fit_curve", return_value=None) as fit:
+            calculator.calculate_spectral_features(data)
+        days, values, _ = fit.call_args.args
+        np.testing.assert_array_equal(days, [90, 110, 120, 130, 140, 150])
+        np.testing.assert_allclose(values, 0.6)
+
+    def test_missing_observations_are_not_counted_toward_fit_minimum(self):
+        calculator = SpectralFeatureCalculator()
+        group = pl.DataFrame(
+            {
+                "field_id": ["001"] * 6,
+                "year": [2024] * 6,
+                "DOY": [90, 100, 110, 120, 130, 140],
+                "ndmi": [0.1, None, 0.2, 0.3, 0.4, 0.5],
+            }
+        )
+        with patch(
+            "crop_classifier.feature.processors.spectral_calculator.fit_curve"
+        ) as fit:
+            result = calculator.process_spectral_features_curve(
+                group, "ndmi", calculator.bounds_config["ndmi"]
+            )
+        self.assertIsNone(result)
+        fit.assert_not_called()
+
+    def test_extrema_and_interpolation_ignore_missing_values(self):
+        calculator = SpectralFeatureCalculator()
+        group = pl.DataFrame(
+            {
+                "field_id": ["001"] * 4,
+                "year": [2024] * 4,
+                "DOY": [100, 110, 120, 130],
+                "red": [0.2, None, float("inf"), 0.8],
+            }
+        )
+        extrema = calculator.process_ndyi_features(group, "red")
+        self.assertEqual(extrema["red_doy_min"], 100)
+        self.assertEqual(extrema["red_doy_max"], 130)
+        means = calculator.process_spectral_features_means(group, "red")
+        self.assertTrue(np.isfinite(means["red_min"]))
+        self.assertTrue(np.isfinite(means["red_max"]))
+
+    def test_all_missing_weather_sums_remain_null_but_real_zero_is_preserved(self):
+        data = pl.DataFrame(
+            {
+                "field_id": ["001", "001", "002"],
+                "month": [4, 4, 4],
+                "temperature": [None, None, 280.0],
+                "precipitation": [None, None, 0.0],
+            }
+        )
+        result = MeteoFeatureCalculator().calculate_meteo_features(data)
+        missing = result.filter(pl.col("field_id") == "001")
+        measured = result.filter(pl.col("field_id") == "002")
+        self.assertIsNone(missing["sum_t_4"][0])
+        self.assertIsNone(missing["sum_prec_4"][0])
+        self.assertEqual(measured["sum_prec_4"][0], 0.0)
+
     def curve_input(self, days):
         return pl.DataFrame(
             {

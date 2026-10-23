@@ -8,7 +8,7 @@ class MeteoFeatureCalculator:
         self,
         df,
     ) -> pl.DataFrame:
-        """Aggregate monthly temperature and precipitation features.
+        """Aggregate monthly weather features, keeping all-missing sums null.
 
         Args:
             df (polars.DataFrame): Observations with field_id, month, temperature in
@@ -25,12 +25,20 @@ class MeteoFeatureCalculator:
             [
                 pl.col("temperature").median().alias("median_t"),
                 pl.col("precipitation").median().alias("median_prec"),
-                pl.col("precipitation").sum().alias("sum_prec"),
+                pl.when(pl.col("precipitation").count() > 0)
+                .then(pl.col("precipitation").sum())
+                .otherwise(None)
+                .alias("sum_prec"),
             ]
         )
 
         temp_calculated = df.group_by(["field_id", "month"]).agg(
-            [pl.col("temperature").sum().alias("sum_t")]
+            [
+                pl.when(pl.col("temperature").count() > 0)
+                .then(pl.col("temperature").sum())
+                .otherwise(None)
+                .alias("sum_t")
+            ]
         )
 
         calculated_df = com_calculated.join(

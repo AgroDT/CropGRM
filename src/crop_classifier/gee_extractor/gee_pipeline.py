@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime, timezone
+from hashlib import sha256
 from pathlib import Path
 from typing import Union
 
@@ -60,15 +61,15 @@ class GEEDownloadingDataPipeline:
         """Download seasonal observations for an input shapefile.
 
         Field mode writes spectral and weather CSV files. Pixel mode writes scene
-        GeoTIFFs and combined Parquet tables. Missing weather images are logged
-        and skipped by the weather download steps.
+        GeoTIFFs in year directories and combined Parquet tables. Existing scenes
+        are reused. Pixel conversion fails if no weather scenes are available.
 
         Args:
             shapefile_path (str | Path): Shapefile defining the extraction region and
                 fields.
 
         Raises:
-            ValueError: If the selected interval contains no spectral images.
+            ValueError: If required scenes are unavailable in the selected interval.
         """
         logger.info(f"Starting pipeline for {shapefile_path}, year {self.year}")
 
@@ -84,13 +85,13 @@ class GEEDownloadingDataPipeline:
         else:
             combined_geom = shape_ee.geometry() if len(gdf) > 1 else shape_ee.geometry()
 
-            spectral_dir = self.output_dir / "spectral_timeseries"
-            meteo_dir = self.output_dir / "meteo_timeseries"
+            spectral_dir = self.output_dir / "spectral_timeseries" / str(self.year)
+            meteo_dir = self.output_dir / "meteo_timeseries" / str(self.year)
 
-            self._export_spectral_time_series(
+            spectral_files = self._export_spectral_time_series(
                 combined_geom, Path(shapefile_path).stem, spectral_dir
             )
-            self._export_meteo_time_series(
+            meteo_files = self._export_meteo_time_series(
                 combined_geom, Path(shapefile_path).stem, meteo_dir
             )
 
@@ -98,11 +99,13 @@ class GEEDownloadingDataPipeline:
                 f"{spectral_out_path}.parquet",
                 Path(shapefile_path).stem,
                 data_type=DATA_TYPE_SPECTRAL,
+                scene_paths=spectral_files,
             )
             TiffTransformator(meteo_dir).process_raster_series(
                 f"{meteo_out_path}.parquet",
                 Path(shapefile_path).stem,
                 data_type=DATA_TYPE_METEO,
+                scene_paths=meteo_files,
             )
 
         logger.info("Downloading completed successfully.")
@@ -138,13 +141,16 @@ class GEEDownloadingDataPipeline:
 
     def _export_spectral_time_series(
         self, geometry: ee.Geometry, base_name: str, export_dir: Path
-    ) -> None:
+    ) -> list[Path]:
         """Export seasonal Landsat scenes as GeoTIFFs.
 
         Args:
             geometry (ee.Geometry): Region to clip and export.
             base_name (str): Filename prefix used for each exported scene.
             export_dir (Path): Directory for GeoTIFF scene files, created if needed.
+
+        Returns:
+            list[Path]: Files for this operation, including reused existing scenes.
 
         Raises:
             ValueError: If no spectral images are available.
@@ -162,23 +168,28 @@ class GEEDownloadingDataPipeline:
             raise ValueError("No spectral data found for the given period.")
 
         timestamps = collection.aggregate_array("system:time_start").getInfo()
+        scene_ids = collection.aggregate_array("system:index").getInfo()
         export_dir.mkdir(parents=True, exist_ok=True)
+        files = []
 
         for i, ts in enumerate(timestamps):
             date_str = datetime.fromtimestamp(ts / 1000, tz=timezone.utc).strftime(
                 "%Y-%m-%d"
             )
-            tile = 0
-            while True:
-                ts_filename = export_dir / f"{base_name}_tile_{tile}_{date_str}.tif"
-                if not ts_filename.exists():
-                    break
-                tile += 1
+            scene_key = sha256(scene_ids[i].encode()).hexdigest()
+            ts_filename = export_dir / f"{base_name}_{scene_key}_{date_str}.tif"
+            files.append(ts_filename)
+            if ts_filename.exists():
+                logger.info("Reusing existing spectral scene: %s", ts_filename)
+                continue
 
             img = ee.Image(collection.toList(count).get(i)).clip(geometry)
             self.raster_exporter.to_geotiff(img, geometry, ts_filename, scale=30)
 
-        logger.info(f"Exported {count} spectral GeoTIFF scenes.")
+        logger.info(
+            "Prepared %d spectral GeoTIFF scenes, including existing files.", count
+        )
+        return files
 
     def _fetch_meteo_stats(
         self, shape_ee: ee.FeatureCollection, output_csv: Path
@@ -206,13 +217,16 @@ class GEEDownloadingDataPipeline:
 
     def _export_meteo_time_series(
         self, geometry: ee.Geometry, base_name: str, export_dir: Path
-    ) -> None:
+    ) -> list[Path]:
         """Export daily weather GeoTIFFs when images are available.
 
         Args:
             geometry (ee.Geometry): Region to clip and export.
             base_name (str): Filename prefix used for each exported scene.
             export_dir (Path): Directory for GeoTIFF scene files, created if needed.
+
+        Returns:
+            list[Path]: Files for this operation, including reused existing scenes.
         """
         collection = self.meteo.get_collection(
             geometry=geometry,
@@ -222,23 +236,26 @@ class GEEDownloadingDataPipeline:
         count = collection.size().getInfo()
         if count == 0:
             logger.warning("No meteo data for raster export.")
-            return
+            return []
 
         timestamps = collection.aggregate_array("system:time_start").getInfo()
         export_dir.mkdir(parents=True, exist_ok=True)
+        files = []
 
         for i, ts in enumerate(timestamps):
             date_str = datetime.fromtimestamp(ts / 1000, tz=timezone.utc).strftime(
                 "%Y-%m-%d"
             )
-            tile = 0
-            while True:
-                ts_filename = export_dir / f"{base_name}_tile_{tile}_{date_str}.tif"
-                if not ts_filename.exists():
-                    break
-                tile += 1
+            ts_filename = export_dir / f"{base_name}_{date_str}.tif"
+            files.append(ts_filename)
+            if ts_filename.exists():
+                logger.info("Reusing existing meteorological scene: %s", ts_filename)
+                continue
 
             img = ee.Image(collection.toList(count).get(i)).clip(geometry)
             self.raster_exporter.to_geotiff(img, geometry, ts_filename, scale=30)
 
-        logger.info(f"Exported {count} meteo GeoTIFF scenes.")
+        logger.info(
+            "Prepared %d meteo GeoTIFF scenes, including existing files.", count
+        )
+        return files
