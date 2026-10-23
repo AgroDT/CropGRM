@@ -1,0 +1,67 @@
+import polars as pl
+
+
+class MeteoFeatureCalculator:
+    """Calculate monthly weather features for each spatial entity."""
+
+    def calculate_meteo_features(
+        self,
+        df,
+    ) -> pl.DataFrame:
+        """Aggregate monthly weather features, keeping all-missing sums null.
+
+        Args:
+            df (polars.DataFrame): Observations with field_id, month, temperature in
+                kelvins, and precipitation in meters. Temperature values
+                must remain in kelvins; no conversion is applied.
+
+        Returns:
+            polars.DataFrame: One row per field_id with median_t, sum_t, median_prec,
+                and sum_prec columns suffixed by month. Temperature features retain
+                kelvin units. Precipitation features retain meter units.
+        """
+
+        com_calculated = df.group_by(["field_id", "month"]).agg(
+            [
+                pl.col("temperature").median().alias("median_t"),
+                pl.col("precipitation").median().alias("median_prec"),
+                pl.when(pl.col("precipitation").count() > 0)
+                .then(pl.col("precipitation").sum())
+                .otherwise(None)
+                .alias("sum_prec"),
+            ]
+        )
+
+        temp_calculated = df.group_by(["field_id", "month"]).agg(
+            [
+                pl.when(pl.col("temperature").count() > 0)
+                .then(pl.col("temperature").sum())
+                .otherwise(None)
+                .alias("sum_t")
+            ]
+        )
+
+        calculated_df = com_calculated.join(
+            temp_calculated, on=["field_id", "month"], how="left"
+        )
+
+        result_df = None
+
+        for col in ["median_t", "sum_t", "median_prec", "sum_prec"]:
+            pivot_df = calculated_df.pivot(
+                index=["field_id"], on="month", values=col, aggregate_function=None
+            )
+
+            pivot_df = pivot_df.rename(
+                {
+                    str(m): f"{col}_{m}"
+                    for m in calculated_df["month"].unique().to_list()
+                }
+            )
+
+            if result_df is None:
+                result_df = pivot_df
+            else:
+                result_df = result_df.join(pivot_df, on="field_id", how="left")
+
+        return result_df
