@@ -58,7 +58,7 @@ class CropPredictor:
                 equality is rejected.
 
         Returns:
-            pandas.DataFrame: Copy of df with integer class and mapped class_name
+            pandas.DataFrame: Input columns with integer class and mapped class_name
                 and probability columns; rejected rows have class 0 and an unmapped
                 class_name. Probability is the maximum before thresholding.
 

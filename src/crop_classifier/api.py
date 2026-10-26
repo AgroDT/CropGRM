@@ -173,7 +173,6 @@ class CropClassifier:
 
         Args:
             data (pandas.DataFrame): Prepared model features and spatial keys.
-                The input table is not modified.
 
         Returns:
             pandas.DataFrame: All input columns, classes, and maximum probability.
@@ -294,7 +293,7 @@ class CropClassifier:
         )
         prefix.parent.mkdir(parents=True, exist_ok=True)
         exporter.export(
-            df=source.copy(deep=True),
+            df=source,
             output_prefix=prefix,
             fields_geometry_path=geometry,
             input_epsg_code=input_epsg_code,

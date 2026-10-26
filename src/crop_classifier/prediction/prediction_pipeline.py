@@ -25,7 +25,7 @@ class CropClassifierPipeline:
         model_type: Union[ModelType, str] = ModelType.FINETUNED,
         threshold: float = 0.5,
     ) -> pd.DataFrame:
-        """Predict crop classes without exporting or changing the input table.
+        """Predict crop classes without exporting.
 
         Args:
             input_data (str | Path | pandas.DataFrame): Feature Parquet path or table
@@ -44,7 +44,7 @@ class CropClassifierPipeline:
         if isinstance(input_data, (str, Path)):
             df = pd.read_parquet(input_data)
         else:
-            df = input_data.copy()
+            df = input_data
 
         return self.predictor.predict(
             df=df,

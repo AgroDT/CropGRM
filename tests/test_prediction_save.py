@@ -7,9 +7,12 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import rasterio
+from pyproj import Transformer
 from shapely.geometry import box
 
 from crop_classifier import CropClassifier, OutputFormat
+from crop_classifier.prediction.exporters import ExporterFactory
+from crop_classifier.prediction.exporters.point_raster import PointRasterExporter
 from crop_classifier.prediction.processors.make_predictions import CropPredictor
 
 
@@ -93,8 +96,77 @@ class PredictionSaveTests(unittest.TestCase):
             result = classifier.predict(self.features)
         pd.testing.assert_frame_equal(result, self.table)
         pd.testing.assert_frame_equal(self.features, original)
+        self.features.loc[0, "feature"] = -100.0
+        self.assertEqual(result.loc[0, "feature"], original.loc[0, "feature"])
         result.loc[0, "class"] = 7
+        result.loc[0, "feature"] = -200.0
         pd.testing.assert_frame_equal(classifier._predictions, self.table)
+
+    def test_direct_exporters_leave_prediction_tables_unchanged(self):
+        original = self.table.copy(deep=True)
+        for fmt in (OutputFormat.TABLE, OutputFormat.VECTOR, OutputFormat.RASTER):
+            with self.subTest(format=fmt):
+                exporter = ExporterFactory.get_exporter(fmt, True, self.table)
+                with patch("geopandas.read_file", return_value=self.fields):
+                    exporter.export(
+                        self.table,
+                        self.folder / f"direct_{fmt.value}",
+                        fields_geometry_path="fields.geojson",
+                        pixel_size=10,
+                    )
+                pd.testing.assert_frame_equal(self.table, original)
+
+    def test_direct_point_raster_keeps_input_and_grid_with_or_without_reprojection(
+        self,
+    ):
+        for source_crs in ("EPSG:3857", "EPSG:4326"):
+            with self.subTest(source_crs=source_crs):
+                lons, lats = [0.0, 25.0], [0.0, 25.0]
+                if source_crs != "EPSG:3857":
+                    lons, lats = Transformer.from_crs(
+                        "EPSG:3857", source_crs, always_xy=True
+                    ).transform(lons, lats)
+                points = self.table.assign(
+                    lon=lons, lat=lats, lon_meter=[-1.0, -2.0], lat_meter=[-3.0, -4.0]
+                )
+                points.index = [17, 5]
+                original = points.copy(deep=True)
+                prefix = self.folder / f"direct_points_{source_crs[-4:]}"
+                PointRasterExporter().export(
+                    points,
+                    prefix,
+                    input_epsg_code=source_crs,
+                    output_epsg_code="EPSG:3857",
+                    pixel_size=10,
+                )
+                pd.testing.assert_frame_equal(points, original)
+                expected = np.full((4, 4), -9999, dtype=np.int16)
+                expected[0, 0], expected[2, 2] = 1, 7
+                with rasterio.open(prefix.with_suffix(".tif")) as raster:
+                    np.testing.assert_array_equal(raster.read(1), expected)
+                    self.assertEqual(raster.res, (10.0, 10.0))
+                    self.assertEqual(raster.crs.to_epsg(), 3857)
+                    self.assertEqual(raster.nodata, -9999)
+
+    def test_failed_point_export_does_not_modify_input_or_cached_predictions(self):
+        points = self.table.assign(lon=[40.0, 40.001], lat=[52.0, 52.001])
+        original = points.copy(deep=True)
+        self.classifier.use_zonal_spectral = False
+        self.classifier._predictions = points
+        with patch(
+            "rioxarray.raster_array.RasterArray.to_raster", side_effect=OSError("write")
+        ):
+            with self.assertRaisesRegex(OSError, "write"):
+                PointRasterExporter().export(
+                    points,
+                    self.folder / "direct_failure",
+                    output_epsg_code="EPSG:32637",
+                )
+            pd.testing.assert_frame_equal(points, original)
+            with self.assertRaisesRegex(OSError, "write"):
+                self.classifier.save(OutputFormat.RASTER, output_epsg_code="EPSG:32637")
+        pd.testing.assert_frame_equal(points, original)
+        pd.testing.assert_frame_equal(self.classifier._predictions, original)
 
     def test_predict_rejects_non_dataframe_input_without_reading_files(self):
         for data in ("features.parquet", Path("features.parquet"), None):

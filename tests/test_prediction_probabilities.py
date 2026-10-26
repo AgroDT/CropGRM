@@ -4,11 +4,36 @@ from unittest.mock import Mock, patch
 import numpy as np
 import pandas as pd
 
+from crop_classifier import CropClassifier
 from crop_classifier.config import ModelType
+from crop_classifier.prediction.prediction_pipeline import CropClassifierPipeline
 from crop_classifier.prediction.processors.make_predictions import CropPredictor
 
 
 class PredictionProbabilityTests(unittest.TestCase):
+    def test_input_result_and_cache_are_independent(self):
+        data = pd.DataFrame({"field_id": ["001", "002"], "feature": [0.2, 0.8]})
+        original = data.copy(deep=True)
+        model = Mock()
+        model.feature_names_ = ["feature"]
+        model.classes_ = np.array([1, 7])
+        model.predict_proba.return_value = np.array([[0.8, 0.2], [0.1, 0.9]])
+        classifier = CropClassifier()
+        with patch.object(CropPredictor, "load_model", return_value=model):
+            pipeline_result = CropClassifierPipeline().run(data)
+            result = classifier.predict(data)
+        pd.testing.assert_frame_equal(data, original)
+        cached = classifier._predictions.copy(deep=True)
+        data.loc[0, "feature"] = -100.0
+        self.assertEqual(pipeline_result.loc[0, "feature"], 0.2)
+        self.assertEqual(result.loc[0, "feature"], 0.2)
+        pipeline_result.loc[1, "feature"] = -200.0
+        self.assertEqual(data.loc[1, "feature"], 0.8)
+        self.assertEqual(result.loc[1, "feature"], 0.8)
+        result.loc[0, "class"] = 7
+        result.loc[0, "feature"] = -300.0
+        pd.testing.assert_frame_equal(classifier._predictions, cached)
+
     def test_missing_curve_features_raise_clear_error_before_inference(self):
         data = pd.DataFrame({"field_id": [7], "red_min": [0.1]})
         original = data.copy(deep=True)
