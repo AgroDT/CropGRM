@@ -46,7 +46,8 @@ class NotebookWorkflowTests(unittest.TestCase):
                         set(model.feature_names_).issubset(features.columns)
                     )
 
-            result = classifier.predict(processed_path=feature_path)
+            result = classifier.predict(features)
+            classifier.save()
             self.assertIsInstance(result, pd.DataFrame)
             prediction_path = output_dir / "final/fields.csv"
             predictions = pd.read_csv(prediction_path, dtype={"field_id": str})
@@ -60,10 +61,8 @@ class NotebookWorkflowTests(unittest.TestCase):
             )
 
             classifier.model_type = ModelType.SMALL
-            classifier.predict(
-                processed_path=feature_path,
-                output_prefix=output_dir / "final/fields_small",
-            )
+            classifier.predict(features)
+            classifier.save(output_prefix=output_dir / "final/fields_small")
             small_predictions = pd.read_csv(output_dir / "final/fields_small.csv")
             self.assertEqual(len(small_predictions), 29)
 
@@ -139,9 +138,10 @@ class NotebookScenarioTests(unittest.TestCase):
             result = classifier.run()
         download.assert_called_once_with()
         build.assert_called_once_with()
-        predict.assert_called_once_with()
+        predict.assert_called_once()
         load.assert_called_once_with(ModelType.FINETUNED)
         features = pd.read_parquet(classifier.default_processed_path)
+        pd.testing.assert_frame_equal(predict.call_args.args[0], features)
         saved = pd.read_csv(
             classifier.default_prediction_prefix.with_suffix(".csv"),
             dtype={
@@ -190,7 +190,8 @@ class NotebookScenarioTests(unittest.TestCase):
                     / "custom_predictions"
                     / f"{classifier.input_file.stem}_{model_type.value}"
                 )
-                predicted = classifier.predict(feature_path, output_prefix=prefix)
+                predicted = classifier.predict(features)
+                classifier.save(output_prefix=prefix)
                 saved = pd.read_csv(prefix.with_suffix(".csv"), dtype={"field_id": str})
                 pd.testing.assert_frame_equal(
                     saved, predicted[["field_id", "class_name", "class"]]
@@ -271,7 +272,8 @@ class NotebookScenarioTests(unittest.TestCase):
         np.testing.assert_allclose(features["median_t_4"], 284.0)
         np.testing.assert_allclose(features["median_prec_4"], 0.001)
         prefix = self.folder / "final/fields_pixel_prediction"
-        predictions = classifier.predict(feature_path, output_prefix=prefix)
+        predictions = classifier.predict(features)
+        classifier.save(output_prefix=prefix)
         original = predictions.copy(deep=True)
         csv = prefix.with_suffix(".csv")
         saved = pd.read_csv(

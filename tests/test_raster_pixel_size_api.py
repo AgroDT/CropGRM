@@ -1,6 +1,6 @@
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 import geopandas as gpd
 import pandas as pd
@@ -47,7 +47,7 @@ class RasterPixelSizeAPITests(unittest.TestCase):
                             patch("geopandas.read_file", return_value=fields),
                         ):
                             options = {} if size is None else {"pixel_size": size}
-                            classifier.predict()
+                            classifier.predict(predictions)
                             classifier.save(
                                 **({} if zonal else {"input_epsg_code": "EPSG:3857"}),
                                 **options,
@@ -65,13 +65,22 @@ class RasterPixelSizeAPITests(unittest.TestCase):
             with (
                 patch.object(classifier, "download_data"),
                 patch.object(classifier, "build_features"),
+                patch("pandas.read_parquet") as read,
                 patch.object(classifier, "predict") as predict,
                 patch.object(classifier, "save") as save,
             ):
                 classifier.run(pixel_size=12.5)
-            predict.assert_called_once_with()
-            save.assert_called_once_with(
-                OutputFormat.RASTER, predictions=predict.return_value, pixel_size=12.5
+            predict.assert_called_once_with(read.return_value)
+            self.assertEqual(
+                save.call_args_list,
+                [
+                    call(OutputFormat.TABLE, predictions=predict.return_value),
+                    call(
+                        OutputFormat.RASTER,
+                        predictions=predict.return_value,
+                        pixel_size=12.5,
+                    ),
+                ],
             )
 
     def test_api_rejects_invalid_size_before_reading_data(self):

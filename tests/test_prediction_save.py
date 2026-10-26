@@ -46,8 +46,10 @@ class PredictionSaveTests(unittest.TestCase):
             patch.object(self.classifier, "build_features") as build,
             patch.object(self.classifier, "download_data") as download,
         ):
-            result = self.classifier.predict()
-            csv = self.classifier.default_prediction_prefix.with_suffix(".csv")
+            result = self.classifier.predict(self.features)
+            read_features.assert_not_called()
+            self.assertFalse(self.classifier.default_prediction_prefix.parent.exists())
+            csv = self.classifier.save(OutputFormat.TABLE)
             pd.testing.assert_frame_equal(
                 pd.read_csv(csv, dtype={"field_id": str}, float_precision="round_trip"),
                 result[["field_id", "class_name", "class"]],
@@ -62,7 +64,7 @@ class PredictionSaveTests(unittest.TestCase):
                 vector = self.classifier.save(fields_geometry_path="fields.geojson")
             load.assert_called_once()
             model.predict_proba.assert_called_once()
-            read_features.assert_called_once()
+            read_features.assert_not_called()
             build.assert_not_called()
             download.assert_not_called()
         with rasterio.open(raster) as dataset:
@@ -71,6 +73,39 @@ class PredictionSaveTests(unittest.TestCase):
         pd.testing.assert_frame_equal(self.features, original)
         pd.testing.assert_frame_equal(result, self.table)
         pd.testing.assert_frame_equal(self.classifier._predictions, self.table)
+
+    def test_predict_needs_no_writable_output_or_table_io(self):
+        blocked = self.folder / "file"
+        blocked.write_text("not a directory", encoding="utf8")
+        model = Mock()
+        model.feature_names_ = ["feature"]
+        model.classes_ = np.array([1, 7])
+        model.predict_proba.return_value = np.array([[0.8, 0.2], [0.1, 0.9]])
+        original = self.features.copy(deep=True)
+        with (
+            patch.object(Path, "mkdir", side_effect=AssertionError("mkdir")),
+            patch("pandas.read_parquet", side_effect=AssertionError("read")),
+            patch.object(pd.DataFrame, "to_csv", side_effect=AssertionError("write")),
+            patch.object(CropClassifier, "save", side_effect=AssertionError("export")),
+            patch.object(CropPredictor, "load_model", return_value=model),
+        ):
+            classifier = CropClassifier(output_dir=blocked / "output")
+            result = classifier.predict(self.features)
+        pd.testing.assert_frame_equal(result, self.table)
+        pd.testing.assert_frame_equal(self.features, original)
+        result.loc[0, "class"] = 7
+        pd.testing.assert_frame_equal(classifier._predictions, self.table)
+
+    def test_predict_rejects_non_dataframe_input_without_reading_files(self):
+        for data in ("features.parquet", Path("features.parquet"), None):
+            with self.subTest(data=data):
+                self.classifier._predictions = self.table
+                with (
+                    patch("pandas.read_parquet", side_effect=AssertionError("read")),
+                    self.assertRaisesRegex(TypeError, "pandas DataFrame"),
+                ):
+                    self.classifier.predict(data)
+                self.assertIsNone(self.classifier._predictions)
 
     def test_explicit_table_and_saved_csv_need_no_prediction_resources(self):
         original = self.table.copy(deep=True)
@@ -130,17 +165,22 @@ class PredictionSaveTests(unittest.TestCase):
         with patch.object(
             CropPredictor, "predict", side_effect=RuntimeError("inference")
         ):
-            with patch("pandas.read_parquet", return_value=self.features):
-                with self.assertRaisesRegex(RuntimeError, "inference"):
-                    self.classifier.predict()
+            with self.assertRaisesRegex(RuntimeError, "inference"):
+                self.classifier.predict(self.features)
         with self.assertRaisesRegex(ValueError, "No predictions"):
             self.classifier.save()
 
-    def test_failed_read_or_default_export_clears_previous_result(self):
+    def test_run_keeps_cache_only_when_inference_succeeded(self):
         for step in ("read", "export"):
             with self.subTest(step=step):
                 self.classifier._predictions = self.table
                 with (
+                    patch.object(self.classifier, "download_data"),
+                    patch.object(
+                        self.classifier,
+                        "build_features",
+                        return_value=self.folder / "features.parquet",
+                    ),
                     patch(
                         "pandas.read_parquet",
                         side_effect=OSError("read") if step == "read" else None,
@@ -152,8 +192,19 @@ class PredictionSaveTests(unittest.TestCase):
                     ),
                 ):
                     with self.assertRaises(OSError):
-                        self.classifier.predict()
-                self.assertIsNone(self.classifier._predictions)
+                        self.classifier.run()
+                if step == "read":
+                    self.assertIsNone(self.classifier._predictions)
+                else:
+                    pd.testing.assert_frame_equal(
+                        self.classifier._predictions, self.table
+                    )
+                    with patch.object(
+                        CropPredictor,
+                        "predict",
+                        side_effect=AssertionError("inference"),
+                    ):
+                        self.assertTrue(self.classifier.save().is_file())
 
     def test_missing_sources_columns_geometry_and_crs(self):
         with self.assertRaisesRegex(ValueError, "No predictions"):

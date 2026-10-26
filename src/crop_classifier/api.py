@@ -47,7 +47,7 @@ class CropClassifier:
             threshold (float): Minimum class probability to exceed for an accepted
                 prediction.
             output_format (OutputFormat | str): Default format for save() and final
-                export in run(). predict() always writes a table.
+                export in run().
             epsg_code (str | None): Default CRS for raster save() and run() output.
                 A CRS is required for point raster output.
         """
@@ -61,8 +61,6 @@ class CropClassifier:
         self.output_format = OutputFormat(output_format)
         self.epsg_code = epsg_code
         self._predictions: Optional[pd.DataFrame] = None
-
-        self.output_dir.mkdir(parents=True, exist_ok=True)
 
     # --- Properties for Default File Paths ---
 
@@ -166,38 +164,30 @@ class CropClassifier:
 
         return dst_path
 
-    def predict(
-        self,
-        processed_path: Optional[Union[str, Path]] = None,
-        output_prefix: Optional[Union[str, Path]] = None,
-    ) -> pd.DataFrame:
-        """Classify features once, cache the result, and write prediction CSV.
+    def predict(self, data: pd.DataFrame) -> pd.DataFrame:
+        """Classify an in-memory feature table and cache predictions without export.
 
         Args:
-            processed_path (str | Path | None): Feature Parquet path; None uses
-                default_processed_path.
-            output_prefix (str | Path | None): CSV prefix without extension; None
-                uses default_prediction_prefix.
+            data (pandas.DataFrame): Prepared model features and spatial keys.
+                The input table is not modified.
 
         Returns:
             pandas.DataFrame: All input columns, classes, and maximum probability.
 
         Raises:
-            FileNotFoundError: If features or the selected model are unavailable.
-            ValueError: If the model type is unsupported. A failed prediction clears
-                the previous cached result.
+            TypeError: If data is not a pandas DataFrame.
+            FileNotFoundError: If the selected model is unavailable.
+            ValueError: If the model type is unsupported or required features are
+                missing. A failed prediction clears the previous cached result.
         """
         self._predictions = None
+        if not isinstance(data, pd.DataFrame):
+            raise TypeError("data must be a pandas DataFrame.")
         predictions = CropClassifierPipeline().run(
-            input_data=(
-                Path(processed_path)
-                if processed_path is not None
-                else self.default_processed_path
-            ),
+            input_data=data,
             model_type=self.model_type,
             threshold=self.threshold,
         )
-        self.save(OutputFormat.TABLE, output_prefix, predictions=predictions)
         self._predictions = predictions.copy(deep=True)
         return predictions
 
@@ -335,8 +325,10 @@ class CropClassifier:
             raise ValueError("pixel_size must be finite and positive.")
         self._predictions = None
         self.download_data()
-        self.build_features()
-        predictions = self.predict()
+        processed_path = self.build_features()
+        data = pd.read_parquet(processed_path)
+        predictions = self.predict(data)
+        self.save(OutputFormat.TABLE, predictions=predictions)
         if fmt != OutputFormat.TABLE:
             self.save(fmt, predictions=predictions, pixel_size=pixel_size)
         return predictions

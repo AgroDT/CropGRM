@@ -58,6 +58,8 @@ Tested on Python 3.12.
 To predict from the included field features without downloading data:
 
 ```python
+import pandas as pd
+
 from crop_classifier import CropClassifier, ModelType, OutputFormat
 
 classifier = CropClassifier(
@@ -67,22 +69,29 @@ classifier = CropClassifier(
     model_type=ModelType.FINETUNED,
     threshold=0.5,
 )
-predictions = classifier.predict(processed_path="data/processed/fields_input.parquet")
+data = pd.read_parquet("data/processed/fields_input.parquet")
+predictions = classifier.predict(data)
+classifier.save(OutputFormat.TABLE)
 classifier.save(OutputFormat.VECTOR)
 classifier.save(OutputFormat.RASTER, output_epsg_code="EPSG:32637", pixel_size=30)
 ```
 
-`predict()` returns all input columns plus `class`, `class_name`, and `probability`,
-and always writes a CSV. A maximum class probability at or below `threshold`
+`predict(data)` accepts a pandas DataFrame and returns all input columns plus
+`class`, `class_name`, and `probability`, without reading feature files or exporting
+results. It still loads the selected model. A maximum probability at or below `threshold`
 produces class 0. `save()` reuses the last predictions or accepts a DataFrame or
 saved CSV through `predictions=`, without running inference again.
+An export failure leaves the cached predictions available for another save attempt.
+The previous `processed_path` and `output_prefix` arguments of `predict()` have
+been removed: read Parquet explicitly and pass the output prefix to `save()`.
 
 For the full workflow, also set `gee_project` and `year`, then call `run()`:
-`download_data()` → `build_features()` → `predict()` → export to `output_format`.
+`download_data()` → `build_features()` → read Parquet → `predict(data)` → save CSV
+and export to `output_format` when another format is selected.
 Downloads require an authenticated Earth Engine session and an input shapefile;
 the extraction period is April 1 through October 31 of `year`.
 To reuse raw data, call `build_features(spectral_path=..., meteo_path=...)` and
-pass the returned Parquet path to `predict(processed_path=...)`.
+read the returned Parquet path with `pd.read_parquet()` before calling `predict(data)`.
 
 ## Input data
 
