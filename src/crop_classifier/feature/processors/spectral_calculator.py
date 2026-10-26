@@ -153,10 +153,12 @@ class SpectralFeatureCalculator:
         params = fit_curve(x, y, bounds)
         if params is None or np.isnan(params).any():
             warnings.warn(
-                f"The feature calculation failed for {group_df['field_id'][0]}, probably due to unsuitable/noisy data.",
+                f"The feature calculation failed for {group_df['field_id'][0]}, "
+                "probably due to unsuitable/noisy data.",
                 UserWarning,
                 stacklevel=2,
             )
+            return None
 
         wNDVI, mNDVI, S, A, mS, mA = params
 

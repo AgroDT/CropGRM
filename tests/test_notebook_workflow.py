@@ -49,7 +49,7 @@ class NotebookWorkflowTests(unittest.TestCase):
             result = classifier.predict(processed_path=feature_path)
             self.assertIsInstance(result, pd.DataFrame)
             prediction_path = output_dir / "final/fields.csv"
-            predictions = pd.read_csv(prediction_path)
+            predictions = pd.read_csv(prediction_path, dtype={"field_id": str})
 
             self.assertEqual(len(predictions), len(features))
             self.assertEqual(set(predictions["field_id"]), set(features["field_id"]))
@@ -93,9 +93,11 @@ class NotebookScenarioTests(unittest.TestCase):
             (meteo_path, "fields_meteo.csv"),
         ):
             destination.parent.mkdir(parents=True, exist_ok=True)
-            pd.read_csv(PROJECT_ROOT / "data/raw" / source, nrows=nrows).to_csv(
-                destination, index=False
-            )
+            pd.read_csv(
+                PROJECT_ROOT / "data/raw" / source,
+                nrows=nrows,
+                dtype={"field_id": str},
+            ).to_csv(destination, index=False)
 
     def test_run_builds_features_and_predicts_once_with_default_paths(self):
         classifier = CropClassifier(
@@ -107,9 +109,11 @@ class NotebookScenarioTests(unittest.TestCase):
             nrows=None,
         )
         expected_ids = set(
-            pd.read_csv(classifier.default_spectral_path, usecols=["field_id"])[
-                "field_id"
-            ]
+            pd.read_csv(
+                classifier.default_spectral_path,
+                usecols=["field_id"],
+                dtype={"field_id": str},
+            )["field_id"]
         )
         load_model = CropPredictor().load_model
 
@@ -140,7 +144,10 @@ class NotebookScenarioTests(unittest.TestCase):
         features = pd.read_parquet(classifier.default_processed_path)
         saved = pd.read_csv(
             classifier.default_prediction_prefix.with_suffix(".csv"),
-            dtype={"class_name": result["class_name"].dtype},
+            dtype={
+                "field_id": result["field_id"].dtype,
+                "class_name": result["class_name"].dtype,
+            },
         )
         self.assertEqual(len(features), len(expected_ids))
         self.assertEqual(set(features["field_id"]), expected_ids)
@@ -184,7 +191,7 @@ class NotebookScenarioTests(unittest.TestCase):
                     / f"{classifier.input_file.stem}_{model_type.value}"
                 )
                 predicted = classifier.predict(feature_path, output_prefix=prefix)
-                saved = pd.read_csv(prefix.with_suffix(".csv"))
+                saved = pd.read_csv(prefix.with_suffix(".csv"), dtype={"field_id": str})
                 pd.testing.assert_frame_equal(
                     saved, predicted[["field_id", "class_name", "class"]]
                 )

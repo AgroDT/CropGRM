@@ -43,6 +43,7 @@ def fit_curve(t, ndvi_observed, bounds):
         warnings.simplefilter("ignore", category=OptimizeWarning)
         warnings.simplefilter("ignore", category=RuntimeWarning)
         initial_guess = [np.min(ndvi_observed), np.max(ndvi_observed), 0, 365, 0.1, 0.1]
+        initial_guess = np.clip(initial_guess, bounds[0], bounds[1])
         try:
             params, _ = curve_fit(
                 double_logistic_function,
