@@ -36,17 +36,38 @@ a fine-tuned model (available in [models](./src/cropgrm/models)):
 - [CropGRM-large.cbm](./src/cropgrm/models/CropGRM-large.cbm) - 134 features
 - [CropGRM-optimized.cbm](./src/cropgrm/models/CropGRM-optimized.cbm) - 82 features
 - [CropGRM-small.cbm](./src/cropgrm/models/CropGRM-small.cbm) - 24 features
-- [finetuned_model.cbm](./src/cropgrm/models/CropGRM-finetuned.cbm) - fine-tuned
+- [CropGRM-finetuned.cbm](./src/cropgrm/models/CropGRM-finetuned.cbm) - fine-tuned
   CropGRM-small on local scientific center data
 
 
 ## Installation
 
-The distribution and import package are both named `cropgrm`. Replace earlier
-`crop_classifier` imports with `cropgrm`; the old import name is no longer provided.
+Requires Python 3.12 or newer and Git. Clone the repository, enter its root
+directory, and create a virtual environment:
 
-Run these commands from the checked-out repository directory with Python 3.12
-or newer. They install the local project; publication on PyPI is not required.
+```sh
+git clone https://github.com/AgroDT/CropGRM.git
+cd CropGRM
+python -m venv .venv
+```
+
+Activate the environment on Windows (PowerShell):
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+```
+
+Or on Linux/macOS:
+
+```sh
+source .venv/bin/activate
+```
+
+If your Python command is `python3`, use it in place of `python` above.
+The installation commands below must be run from the repository root (the folder
+containing `pyproject.toml`).
+
+Choose the command matching your workflow:
 
 ```sh
 # Inference on prepared features, Parquet input, and CSV export
@@ -70,28 +91,14 @@ maps without requiring Earth Engine. `gee` includes its own geospatial download
 dependencies but does not include feature preparation. A complete `run()` needs
 `features` and `gee`; add `geo` when selecting geographic prediction output.
 
-The base package declares CatBoost, NumPy, pandas, and PyArrow. CatBoost itself
-also depends on libraries such as SciPy and Matplotlib. Base inference does not
-import CropGRM feature preparation, Earth Engine, geographic exporters, or SymPy.
-Optional capabilities are loaded when used; a missing dependency reports the
-corresponding extra. The symbolic seasonal derivative is initialized on demand
-and cached per process during feature calculation.
-
-For development with uv, use `uv sync --locked --all-extras`, then
-`uv run --no-sync python -m unittest discover -s tests -v`. For a base-only
-environment, use `uv sync --locked --no-dev`.
-
-CI also builds a wheel, installs it with base dependencies in a clean environment,
-and loads all four bundled models from outside the checkout using isolated
-Python. `tests/smoke_installed_package.py` checks the installed package location
-and runs a small prediction with each model.
-
 ## Examples
 
-Examples and instructions are available in [notebooks](./notebooks):
+Detailed setup and usage instructions are available in [notebooks](./notebooks).
+Open them in Jupyter or a compatible editor using the Python environment where
+CropGRM is installed:
 
 - [inference_tutorial.ipynb](./notebooks/inference_tutorial.ipynb) - instructions
-  and examples for making field-based an pixel-based predictions
+  and examples for making field-based and pixel-based predictions
 
 - [model_experimentation.ipynb](./notebooks/model_experimentation.ipynb) - 
   example for model comparison
@@ -99,65 +106,22 @@ Examples and instructions are available in [notebooks](./notebooks):
 - [inference_geospatial.ipynb](./notebooks/inference_geospatial.ipynb) -
   instructions and examples for making geospatial predictions
 
-Tested on Python 3.12.
-
-To predict from the included field features without downloading data:
-
-```python
-import pandas as pd
-
-from cropgrm import CropClassifier, ModelType, OutputFormat
-
-classifier = CropClassifier(
-    shapefile_path="data/raw/fields.shp",
-    output_dir="data",
-    use_zonal_spectral=True,
-    model_type=ModelType.FINETUNED,
-    threshold=0.5,
-)
-data = pd.read_parquet("data/processed/fields_input.parquet")
-predictions = classifier.predict(data)
-classifier.save(OutputFormat.TABLE)
-classifier.save(OutputFormat.VECTOR)
-classifier.save(OutputFormat.RASTER, output_epsg_code="EPSG:32637", pixel_size=30)
-```
-
-`predict(data)` accepts a pandas DataFrame and returns all input columns plus
-`class`, `class_name`, and `probability`, without reading feature files or exporting
-results. It still loads the selected model. A maximum probability at or below `threshold`
-produces class 0. `save()` reuses the last predictions or accepts a DataFrame or
-saved CSV through `predictions=`, without running inference again.
-An export failure leaves the cached predictions available for another save attempt.
-The previous `processed_path` and `output_prefix` arguments of `predict()` have
-been removed: read Parquet explicitly and pass the output prefix to `save()`.
-
-Set `CropClassifier(..., n_jobs=4)` to use four workers for spectral feature
-preparation in `build_features()` and `run()`. The default is `n_jobs=1`
-(sequential); `-1` explicitly uses all available CPUs. Other negative integers
-follow joblib semantics, while zero, booleans, and nonintegers are rejected.
-`PredictorPipeline(n_jobs=...)` and `SpectralFeatureCalculator(n_jobs=...)` also
-accept this setting when used directly. This controls joblib workers rather than
-CatBoost prediction threads or a global CPU limit for other libraries.
-
-For the full workflow, also set `gee_project` and `year`, then call `run()`:
-`download_data()` → `build_features()` → read Parquet → `predict(data)` → save CSV
-and export to `output_format` when another format is selected.
-Downloads require an authenticated Earth Engine session and an input shapefile;
-the extraction period is April 1 through October 31 of `year`.
-To reuse raw data, call `build_features(spectral_path=..., meteo_path=...)` and
-read the returned Parquet path with `pd.read_parquet()` before calling `predict(data)`.
+Earth Engine downloading requires an authenticated session, an accessible GEE
+project, and an input shapefile. The extraction period is April 1 through
+October 31 of the selected year. Prepared local features can be used without
+Earth Engine access.
 
 ## Input data
 
 - Vector dataset with field geometries (example available at
   [data/raw/fields.fgb](./data/raw/fields.fgb))
 - Meteorological data (ERA5) downloaded from Google Earth Engine (example
-  available at [data/raw/fields_meteo_data.csv](./data/raw/fields_meteo_data.csv)
-  [data/raw/fields_meteo_data.parquet](./data/raw/fields_meteo_data.parquet)
+  available at [data/raw/fields_meteo.csv](./data/raw/fields_meteo.csv)
+  [data/raw/fields_meteo.parquet](./data/raw/fields_meteo.parquet)
   for field-based and pixel-based detection respectively)
 - Spectral data (Landsat 5, 8, 9) downloaded from Google Earth Engine (example
-  available at [data/raw/fields_spectral_data.csv](./data/raw/fields_spectral_data.csv)
-  and [data/raw/fields_spectral_data.parquet](./data/raw/fields_spectral_data.parquet)
+  available at [data/raw/fields_spectral.csv](./data/raw/fields_spectral.csv)
+  and [data/raw/fields_spectral.parquet](./data/raw/fields_spectral.parquet)
   for field-based and pixel-based detection respectively)
 - Preprocessed feature dataset from Google Earth Engine for each field (example
   available at [data/processed/fields_input.parquet](./data/processed/fields_input.parquet)
