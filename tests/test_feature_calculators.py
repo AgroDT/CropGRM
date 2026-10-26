@@ -4,11 +4,11 @@ from unittest.mock import Mock, patch
 import numpy as np
 import polars as pl
 
-from crop_classifier.feature.math.curves import double_logistic_function
-from crop_classifier.feature.math.derivatives import get_fourth_derivative
-from crop_classifier.feature.processors.add_indices import add_indices
-from crop_classifier.feature.processors.meteo_calculator import MeteoFeatureCalculator
-from crop_classifier.feature.processors.spectral_calculator import (
+from cropgrm.feature.math.curves import double_logistic_function
+from cropgrm.feature.math.derivatives import get_fourth_derivative
+from cropgrm.feature.processors.add_indices import add_indices
+from cropgrm.feature.processors.meteo_calculator import MeteoFeatureCalculator
+from cropgrm.feature.processors.spectral_calculator import (
     SpectralFeatureCalculator,
 )
 
@@ -51,7 +51,7 @@ class FeatureCalculatorTests(unittest.TestCase):
         data = self.curve_input([90, 100, 110, 120, 130, 140, 150]).with_columns(
             pl.Series("swir1", [0.2, None, 0.2, 0.2, 0.2, 0.2, 0.2])
         )
-        module = "crop_classifier.feature.processors.spectral_calculator"
+        module = "cropgrm.feature.processors.spectral_calculator"
         with patch(f"{module}.fit_curve", return_value=None) as fit:
             calculator.calculate_spectral_features(data)
         days, values, _ = fit.call_args.args
@@ -68,9 +68,7 @@ class FeatureCalculatorTests(unittest.TestCase):
                 "ndmi": [0.1, None, 0.2, 0.3, 0.4, 0.5],
             }
         )
-        with patch(
-            "crop_classifier.feature.processors.spectral_calculator.fit_curve"
-        ) as fit:
+        with patch("cropgrm.feature.processors.spectral_calculator.fit_curve") as fit:
             result = calculator.process_spectral_features_curve(
                 group, "ndmi", calculator.bounds_config["ndmi"]
             )
@@ -128,7 +126,7 @@ class FeatureCalculatorTests(unittest.TestCase):
         calculator = SpectralFeatureCalculator(n_jobs=1)
         calculator.feature_config = {"ndmi": {"pipeline": "curve"}}
         data = self.curve_input([50, 90, 100, 110, 120, 130])
-        module = "crop_classifier.feature.processors.spectral_calculator"
+        module = "cropgrm.feature.processors.spectral_calculator"
         with (
             patch(f"{module}.fit_curve") as fit,
             self.assertLogs(module, level="WARNING") as logs,
@@ -142,7 +140,7 @@ class FeatureCalculatorTests(unittest.TestCase):
         self.assertIn("0 curve fits failed", logs.output[0])
 
     def test_failed_curve_fits_log_reason_and_preserve_spatial_rows(self):
-        module = "crop_classifier.feature.processors.spectral_calculator"
+        module = "cropgrm.feature.processors.spectral_calculator"
         for parameters in (None, np.full(6, np.nan)):
             with self.subTest(parameters=parameters):
                 calculator = SpectralFeatureCalculator(n_jobs=1)
@@ -171,7 +169,7 @@ class FeatureCalculatorTests(unittest.TestCase):
             pl.col("field_id") + 1
         )
         data = pl.concat([short, complete])
-        module = "crop_classifier.feature.processors.spectral_calculator"
+        module = "cropgrm.feature.processors.spectral_calculator"
         parameters = np.array([0.1, 0.9, 120.0, 260.0, 0.1, 0.1])
         with (
             patch(f"{module}.fit_curve", return_value=parameters) as fit,
@@ -267,7 +265,7 @@ class FeatureCalculatorTests(unittest.TestCase):
         params = np.array([0.1, 0.9, 120.0, 260.0, 0.1, 0.1])
         days = np.linspace(90, 305, 6)
         values = double_logistic_function(days, *params)
-        module = "crop_classifier.feature.processors.spectral_calculator"
+        module = "cropgrm.feature.processors.spectral_calculator"
 
         for year, april_days in [(2015, [91, 120]), (2024, [120, 121])]:
             data = pl.DataFrame(

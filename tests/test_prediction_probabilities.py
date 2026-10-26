@@ -4,10 +4,10 @@ from unittest.mock import Mock, patch
 import numpy as np
 import pandas as pd
 
-from crop_classifier import CropClassifier
-from crop_classifier.config import ModelType
-from crop_classifier.prediction.prediction_pipeline import CropClassifierPipeline
-from crop_classifier.prediction.processors.make_predictions import CropPredictor
+from cropgrm import CropClassifier
+from cropgrm.config import ModelType
+from cropgrm.prediction.prediction_pipeline import CropClassifierPipeline
+from cropgrm.prediction.processors.make_predictions import CropPredictor
 
 
 class PredictionProbabilityTests(unittest.TestCase):

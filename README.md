@@ -22,7 +22,7 @@ CropGRM
 │   ├── processed # preprocessed data for model predictions
 │   └── raw # input files
 ├── notebooks # examples and instructions
-├── src/crop_classifier # classification package and models
+├── src/cropgrm # classification package and models
 ├── README.md
 ├── pyproject.toml # package metadata and dependencies
 └── uv.lock # locked dependencies
@@ -31,16 +31,19 @@ CropGRM
 ## Models
 
 The project includes three base models with different numbers of predictors and
-a fine-tuned model (available in [models](./src/crop_classifier/models)):
+a fine-tuned model (available in [models](./src/cropgrm/models)):
 
-- [CropGRM-large.cbm](./src/crop_classifier/models/CropGRM-large.cbm) - 134 features
-- [CropGRM-optimized.cbm](./src/crop_classifier/models/CropGRM-optimized.cbm) - 82 features
-- [CropGRM-small.cbm](./src/crop_classifier/models/CropGRM-small.cbm) - 24 features
-- [finetuned_model.cbm](./src/crop_classifier/models/CropGRM-finetuned.cbm) - fine-tuned
+- [CropGRM-large.cbm](./src/cropgrm/models/CropGRM-large.cbm) - 134 features
+- [CropGRM-optimized.cbm](./src/cropgrm/models/CropGRM-optimized.cbm) - 82 features
+- [CropGRM-small.cbm](./src/cropgrm/models/CropGRM-small.cbm) - 24 features
+- [finetuned_model.cbm](./src/cropgrm/models/CropGRM-finetuned.cbm) - fine-tuned
   CropGRM-small on local scientific center data
 
 
 ## Installation
+
+The distribution and import package are both named `cropgrm`. Replace earlier
+`crop_classifier` imports with `cropgrm`; the old import name is no longer provided.
 
 Run these commands from the checked-out repository directory with Python 3.12
 or newer. They install the local project; publication on PyPI is not required.
@@ -78,6 +81,11 @@ For development with uv, use `uv sync --locked --all-extras`, then
 `uv run --no-sync python -m unittest discover -s tests -v`. For a base-only
 environment, use `uv sync --locked --no-dev`.
 
+CI also builds a wheel, installs it with base dependencies in a clean environment,
+and loads all four bundled models from outside the checkout using isolated
+Python. `tests/smoke_installed_package.py` checks the installed package location
+and runs a small prediction with each model.
+
 ## Examples
 
 Examples and instructions are available in [notebooks](./notebooks):
@@ -98,7 +106,7 @@ To predict from the included field features without downloading data:
 ```python
 import pandas as pd
 
-from crop_classifier import CropClassifier, ModelType, OutputFormat
+from cropgrm import CropClassifier, ModelType, OutputFormat
 
 classifier = CropClassifier(
     shapefile_path="data/raw/fields.shp",

@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch
 
 import pandas as pd
 
-from crop_classifier import CropClassifier
+from cropgrm import CropClassifier
 
 
 class PublicParallelismTests(unittest.TestCase):
@@ -19,7 +19,7 @@ class PublicParallelismTests(unittest.TestCase):
         for workers in (0, True, False, 1.5, "2", None):
             with self.subTest(n_jobs=workers):
                 with (
-                    patch("crop_classifier.api.import_optional") as optional,
+                    patch("cropgrm.api.import_optional") as optional,
                     self.assertRaisesRegex(ValueError, "n_jobs.*nonzero integer"),
                 ):
                     CropClassifier(n_jobs=workers)
@@ -36,7 +36,7 @@ class PublicParallelismTests(unittest.TestCase):
                 feature_module = Mock()
                 with (
                     patch(
-                        "crop_classifier.api.import_optional",
+                        "cropgrm.api.import_optional",
                         return_value=feature_module,
                     ),
                     patch.object(classifier, "download_data"),
@@ -63,22 +63,22 @@ class PublicParallelismTests(unittest.TestCase):
 
 class FeatureParallelismTests(unittest.TestCase):
     def test_worker_count_reaches_joblib_for_every_processor(self):
-        from crop_classifier.feature.feature_pipeline import PredictorPipeline
+        from cropgrm.feature.feature_pipeline import PredictorPipeline
 
         for workers in (1, 3, -1):
             pipeline = PredictorPipeline(n_jobs=workers)
             for processor in ("mean", "curve", "extrema"):
                 with self.subTest(n_jobs=workers, processor=processor):
                     with patch(
-                        "crop_classifier.feature.processors.spectral_calculator.Parallel"
+                        "cropgrm.feature.processors.spectral_calculator.Parallel"
                     ) as parallel:
                         parallel.return_value.return_value = []
                         pipeline.spectral_extractor._run_pipeline(processor, "ndmi", [])
                     parallel.assert_called_once_with(n_jobs=workers)
 
     def test_direct_feature_constructors_validate_worker_count(self):
-        from crop_classifier.feature.feature_pipeline import PredictorPipeline
-        from crop_classifier.feature.processors.spectral_calculator import (
+        from cropgrm.feature.feature_pipeline import PredictorPipeline
+        from cropgrm.feature.processors.spectral_calculator import (
             SpectralFeatureCalculator,
         )
 
@@ -92,7 +92,7 @@ class FeatureParallelismTests(unittest.TestCase):
         import polars as pl
         from polars.testing import assert_frame_equal
 
-        from crop_classifier.feature.processors.spectral_calculator import (
+        from cropgrm.feature.processors.spectral_calculator import (
             SpectralFeatureCalculator,
         )
 

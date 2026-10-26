@@ -10,10 +10,10 @@ import rasterio
 from pyproj import Transformer
 from shapely.geometry import box
 
-from crop_classifier import CropClassifier, OutputFormat
-from crop_classifier.prediction.exporters import ExporterFactory
-from crop_classifier.prediction.exporters.point_raster import PointRasterExporter
-from crop_classifier.prediction.processors.make_predictions import CropPredictor
+from cropgrm import CropClassifier, OutputFormat
+from cropgrm.prediction.exporters import ExporterFactory
+from cropgrm.prediction.exporters.point_raster import PointRasterExporter
+from cropgrm.prediction.processors.make_predictions import CropPredictor
 
 
 class PredictionSaveTests(unittest.TestCase):

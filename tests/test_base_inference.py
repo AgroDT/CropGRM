@@ -26,8 +26,8 @@ class BaseInferenceTests(unittest.TestCase):
 
             sys.meta_path.insert(0, BlockOptional())
             import pandas as pd
-            from crop_classifier import CropClassifier, ModelType
-            from crop_classifier.prediction.processors.make_predictions import CropPredictor
+            from cropgrm import CropClassifier, ModelType
+            from cropgrm.prediction.processors.make_predictions import CropPredictor
 
             model = CropPredictor().load_model(ModelType.FINETUNED)
             data = pd.DataFrame(0.0, index=range(2), columns=model.feature_names_)
@@ -45,14 +45,14 @@ class BaseInferenceTests(unittest.TestCase):
 
             assert not blocked.intersection(sys.modules)
             assert not any(
-                name.startswith(('crop_classifier.feature', 'crop_classifier.gee_extractor'))
+                name.startswith(('cropgrm.feature', 'cropgrm.gee_extractor'))
                 for name in sys.modules
             )
             assert not any(
                 name in sys.modules for name in (
-                    'crop_classifier.prediction.exporters.vector',
-                    'crop_classifier.prediction.exporters.point_raster',
-                    'crop_classifier.prediction.exporters.polygon_raster',
+                    'cropgrm.prediction.exporters.vector',
+                    'cropgrm.prediction.exporters.point_raster',
+                    'cropgrm.prediction.exporters.polygon_raster',
                 )
             )
         """)

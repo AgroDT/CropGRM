@@ -7,8 +7,8 @@ import pandas as pd
 import rasterio
 from shapely.geometry import box
 
-from crop_classifier import CropClassifier, OutputFormat
-from crop_classifier.prediction.processors.make_predictions import CropPredictor
+from cropgrm import CropClassifier, OutputFormat
+from cropgrm.prediction.processors.make_predictions import CropPredictor
 
 
 class RasterPixelSizeAPITests(unittest.TestCase):

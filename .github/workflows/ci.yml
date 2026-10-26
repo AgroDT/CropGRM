@@ -44,7 +44,7 @@ jobs:
           env -u PROJ_DATA -u PROJ_LIB \
             uv run --no-sync python -m unittest discover -s tests -v
 
-  base-inference:
+  wheel-inference:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -58,10 +58,18 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v6
 
-      - name: Install base package only
-        run: uv sync --locked --no-dev
+      - name: Build wheel
+        run: uv build --wheel --out-dir "$RUNNER_TEMP/cropgrm-dist"
 
-      - name: Check base inference and CSV export
-        run: >-
-          uv run --no-sync python -m unittest discover
-          -s tests -p test_base_inference.py -v
+      - name: Install wheel with base dependencies in a clean environment
+        run: |
+          uv venv "$RUNNER_TEMP/cropgrm-wheel-env" --python 3.12
+          uv pip install --python "$RUNNER_TEMP/cropgrm-wheel-env/bin/python" \
+            "$RUNNER_TEMP"/cropgrm-dist/*.whl
+
+      - name: Load bundled models and predict outside the checkout
+        run: |
+          mkdir -p "$RUNNER_TEMP/cropgrm-smoke"
+          cd "$RUNNER_TEMP/cropgrm-smoke"
+          "$RUNNER_TEMP/cropgrm-wheel-env/bin/python" -I \
+            "$GITHUB_WORKSPACE/tests/smoke_installed_package.py"

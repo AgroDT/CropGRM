@@ -4,7 +4,7 @@ import textwrap
 import unittest
 from unittest.mock import patch
 
-from crop_classifier._optional import import_optional
+from cropgrm._optional import import_optional
 
 
 class OptionalDependencyTests(unittest.TestCase):
@@ -43,7 +43,7 @@ class OptionalDependencyTests(unittest.TestCase):
 
                     sys.meta_path.insert(0, BlockDependency())
                     import pandas as pd
-                    from crop_classifier import CropClassifier
+                    from cropgrm import CropClassifier
 
                     data = pd.DataFrame({{
                         'field_id': ['001'], 'class': [1], 'class_name': ['winter wheat'],
@@ -64,14 +64,14 @@ class OptionalDependencyTests(unittest.TestCase):
 
     def test_unrelated_import_errors_are_not_relabelled(self):
         error = ModuleNotFoundError("Implementation error", name="internal_typo")
-        with patch("crop_classifier._optional.import_module", side_effect=error):
+        with patch("cropgrm._optional.import_module", side_effect=error):
             with self.assertRaises(ModuleNotFoundError) as caught:
-                import_optional("crop_classifier.feature.feature_pipeline", "features")
+                import_optional("cropgrm.feature.feature_pipeline", "features")
         self.assertIs(caught.exception, error)
 
     def test_missing_geedim_explains_the_download_extra(self):
         error = ModuleNotFoundError("Missing", name="geedim")
-        with patch("crop_classifier._optional.import_module", side_effect=error):
+        with patch("cropgrm._optional.import_module", side_effect=error):
             with self.assertRaisesRegex(ModuleNotFoundError, r"\.\[gee\]"):
                 import_optional("geedim", "gee")
 
@@ -86,8 +86,8 @@ class OptionalDependencyTests(unittest.TestCase):
                         raise ModuleNotFoundError('Missing', name='sympy')
 
             sys.meta_path.insert(0, BlockSympy())
-            from crop_classifier.feature import SpectralFeatureCalculator
-            from crop_classifier.feature.math.derivatives import get_fourth_derivative
+            from cropgrm.feature import SpectralFeatureCalculator
+            from cropgrm.feature.math.derivatives import get_fourth_derivative
             SpectralFeatureCalculator()
             assert 'sympy' not in sys.modules
             assert get_fourth_derivative.cache_info().currsize == 0
@@ -110,7 +110,7 @@ class OptionalDependencyTests(unittest.TestCase):
                         raise ModuleNotFoundError('Missing', name=fullname)
 
             sys.meta_path.insert(0, BlockEE())
-            from crop_classifier.gee_extractor import TiffTransformator
+            from cropgrm.gee_extractor import TiffTransformator
             assert TiffTransformator.__name__ == 'TiffTransformator'
             assert not {'ee', 'geemap', 'geedim'}.intersection(sys.modules)
         """)

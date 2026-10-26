@@ -10,7 +10,7 @@ import pandas as pd
 import rasterio
 from shapely.geometry import box
 
-from crop_classifier.prediction.exporters.polygon_raster import PolygonRasterExporter
+from cropgrm.prediction.exporters.polygon_raster import PolygonRasterExporter
 
 
 class PolygonRasterExportTests(unittest.TestCase):
@@ -21,7 +21,7 @@ class PolygonRasterExportTests(unittest.TestCase):
         predictions = pd.DataFrame({"field_id": range(len(classes)), "class": classes})
         prefix = Path(folder) / "predictions"
         with patch(
-            "crop_classifier.prediction.exporters.polygon_raster.gpd.read_file",
+            "cropgrm.prediction.exporters.polygon_raster.gpd.read_file",
             return_value=fields,
         ):
             PolygonRasterExporter().export(

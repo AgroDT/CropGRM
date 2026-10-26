@@ -5,8 +5,8 @@ from unittest.mock import patch
 
 import polars as pl
 
-from crop_classifier.config import BASIC_INDICES, METEO_INDICES
-from crop_classifier.feature.feature_pipeline import PredictorPipeline
+from cropgrm.config import BASIC_INDICES, METEO_INDICES
+from cropgrm.feature.feature_pipeline import PredictorPipeline
 
 
 class FeatureInputValidationTests(unittest.TestCase):
@@ -93,7 +93,7 @@ class FeatureInputValidationTests(unittest.TestCase):
                 pipeline.meteo_extractor, "calculate_meteo_features"
             ) as meteo_features,
             patch(
-                "crop_classifier.feature.processors.spectral_calculator.add_indices"
+                "cropgrm.feature.processors.spectral_calculator.add_indices"
             ) as indices,
             self.assertRaises(ValueError) as error,
         ):

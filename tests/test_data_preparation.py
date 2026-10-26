@@ -5,7 +5,7 @@ from pathlib import Path
 
 import polars as pl
 
-from crop_classifier.feature.processors.data_preparer import DataPreparer
+from cropgrm.feature.processors.data_preparer import DataPreparer
 
 
 class DataPreparationTests(unittest.TestCase):

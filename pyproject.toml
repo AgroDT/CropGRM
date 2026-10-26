@@ -63,5 +63,5 @@ requires = ["uv_build>=0.12.17,<0.13"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
-module-name = "crop_classifier"
+module-name = "cropgrm"
 module-root = "src"

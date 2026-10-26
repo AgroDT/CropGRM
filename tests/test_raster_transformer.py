@@ -9,9 +9,9 @@ import pyarrow.parquet as pq
 import rasterio
 from rasterio.transform import from_origin
 
-from crop_classifier.feature.processors.data_preparer import DataPreparer
-from crop_classifier.gee_extractor.constants import DATA_TYPE_SPECTRAL
-from crop_classifier.gee_extractor.processor.tiff_transformer import TiffTransformator
+from cropgrm.feature.processors.data_preparer import DataPreparer
+from cropgrm.gee_extractor.constants import DATA_TYPE_SPECTRAL
+from cropgrm.gee_extractor.processor.tiff_transformer import TiffTransformator
 
 
 class RasterTransformerTests(unittest.TestCase):

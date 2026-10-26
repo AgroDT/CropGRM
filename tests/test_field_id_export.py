@@ -7,9 +7,9 @@ import geopandas as gpd
 import rasterio
 from shapely.geometry import box
 
-from crop_classifier.feature.processors.data_preparer import DataPreparer
-from crop_classifier.prediction.exporters.polygon_raster import PolygonRasterExporter
-from crop_classifier.prediction.exporters.vector import VectorExporter
+from cropgrm.feature.processors.data_preparer import DataPreparer
+from cropgrm.prediction.exporters.polygon_raster import PolygonRasterExporter
+from cropgrm.prediction.exporters.vector import VectorExporter
 
 
 class FieldIdExportTests(unittest.TestCase):
@@ -26,7 +26,7 @@ class FieldIdExportTests(unittest.TestCase):
                 encoding="utf8",
             )
             predictions = DataPreparer.read_dataset(path).collect().to_pandas()
-            module = "crop_classifier.prediction.exporters"
+            module = "cropgrm.prediction.exporters"
             prefix = Path(directory) / "result"
             with (
                 patch(f"{module}.polygon_raster.gpd.read_file", return_value=fields),

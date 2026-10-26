@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import numpy as np
 
-from crop_classifier.feature.math.curves import fit_curve
+from cropgrm.feature.math.curves import fit_curve
 
 
 class CurveFittingTests(unittest.TestCase):
@@ -16,7 +16,7 @@ class CurveFittingTests(unittest.TestCase):
         expected = np.array([0.1, 0.8, 120, 260, 0.1, 0.1])
         original = self.values.copy()
         with patch(
-            "crop_classifier.feature.math.curves.curve_fit",
+            "cropgrm.feature.math.curves.curve_fit",
             return_value=(expected, None),
         ) as optimize:
             result = fit_curve(self.days, self.values, self.bounds)
@@ -29,7 +29,7 @@ class CurveFittingTests(unittest.TestCase):
 
     def test_nonconvergence_returns_none(self):
         with patch(
-            "crop_classifier.feature.math.curves.curve_fit",
+            "cropgrm.feature.math.curves.curve_fit",
             side_effect=RuntimeError("Optimal parameters not found"),
         ):
             self.assertIsNone(fit_curve(self.days, self.values, self.bounds))

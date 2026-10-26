@@ -3,8 +3,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from crop_classifier.gee_extractor.data_downloading.exporter import RasterExporter
-from crop_classifier.gee_extractor.gee_pipeline import GEEDownloadingDataPipeline
+from cropgrm.gee_extractor.data_downloading.exporter import RasterExporter
+from cropgrm.gee_extractor.gee_pipeline import GEEDownloadingDataPipeline
 
 
 class GEESceneFileTests(unittest.TestCase):
@@ -55,9 +55,7 @@ class GEESceneFileTests(unittest.TestCase):
 
                 pipeline.raster_exporter.to_geotiff.side_effect = download
                 folder = Path(directory) / "2024"
-                with patch(
-                    "crop_classifier.gee_extractor.gee_pipeline.ee.Image"
-                ) as image:
+                with patch("cropgrm.gee_extractor.gee_pipeline.ee.Image") as image:
                     first = getattr(pipeline, method)(MagicMock(), "fields", folder)
                     self.assertEqual(len(set(first)), 2)
                     self.assertEqual(pipeline.raster_exporter.to_geotiff.call_count, 2)
@@ -93,7 +91,7 @@ class GEESceneFileTests(unittest.TestCase):
             pipeline.output_dir = Path(directory)
             spectral = [Path(directory) / "spectral.tif"]
             meteo = [Path(directory) / "meteo.tif"]
-            module = "crop_classifier.gee_extractor.gee_pipeline"
+            module = "cropgrm.gee_extractor.gee_pipeline"
             with (
                 patch(f"{module}.gpd.read_file", return_value=[1]),
                 patch(f"{module}.geemap.shp_to_ee"),

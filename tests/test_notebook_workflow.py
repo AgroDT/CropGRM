@@ -9,8 +9,8 @@ import pandas as pd
 import rasterio
 from shapely.geometry import box
 
-from crop_classifier import CropClassifier, ModelType, OutputFormat
-from crop_classifier.prediction.processors.make_predictions import CropPredictor
+from cropgrm import CropClassifier, ModelType, OutputFormat
+from cropgrm.prediction.processors.make_predictions import CropPredictor
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
@@ -70,7 +70,7 @@ class NotebookScenarioTests(unittest.TestCase):
         self.folder = Path(self.enterContext(tempfile.TemporaryDirectory()))
         self.enterContext(
             patch(
-                "crop_classifier.gee_extractor.gee_pipeline.GEEDownloadingDataPipeline",
+                "cropgrm.gee_extractor.gee_pipeline.GEEDownloadingDataPipeline",
                 side_effect=AssertionError("Earth Engine must not be used."),
             )
         )
@@ -281,7 +281,7 @@ class NotebookScenarioTests(unittest.TestCase):
         )
         with (
             patch(
-                "crop_classifier.api.CropClassifierPipeline",
+                "cropgrm.api.CropClassifierPipeline",
                 side_effect=AssertionError("Export must not invoke prediction."),
             ),
             patch.object(
@@ -336,7 +336,7 @@ class NotebookScenarioTests(unittest.TestCase):
             epsg_code="EPSG:32637",
         )
         with patch(
-            "crop_classifier.api.CropClassifierPipeline",
+            "cropgrm.api.CropClassifierPipeline",
             side_effect=AssertionError("Export must not invoke prediction."),
         ):
             prefix = classifier.output_dir / "final/CropMap_fields"
