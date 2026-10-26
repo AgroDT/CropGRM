@@ -31,17 +31,8 @@ class _BaseGEEExtractor:
         """Initialize Earth Engine once, authenticating if the first attempt fails."""
         if _BaseGEEExtractor._is_initialized:
             return
-        try:
-            if self.project_id:
-                ee.Initialize(project=self.project_id, opt_url=self.opt_url)
-            else:
-                ee.Initialize(opt_url=self.opt_url)
-        except Exception:
-            ee.Authenticate()
-            if self.project_id:
-                ee.Initialize(project=self.project_id, opt_url=self.opt_url)
-            else:
-                ee.Initialize(opt_url=self.opt_url)
+
+        ee.Initialize(project=self.project_id, opt_url=self.opt_url)
 
         _BaseGEEExtractor._is_initialized = True
         logger.info("Google Earth Engine initialized.")

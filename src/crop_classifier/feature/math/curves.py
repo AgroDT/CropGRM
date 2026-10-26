@@ -53,7 +53,7 @@ def fit_curve(t, ndvi_observed, bounds):
                 maxfev=5000,
             )
             return params
-        except Exception:
+        except RuntimeError:
             return None
 
 
