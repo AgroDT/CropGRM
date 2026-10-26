@@ -19,10 +19,14 @@ logger = logging.getLogger(__name__)
 class PredictorPipeline:
     """Build model features from spectral and meteorological time series."""
 
-    def __init__(self):
-        """Initialize data preparation and feature calculators from configuration."""
+    def __init__(self, n_jobs: int = 1):
+        """Initialize feature tools with the requested spectral worker count.
+
+        Args:
+            n_jobs (int): Joblib worker count; 1 is sequential, -1 uses all CPUs.
+        """
         self.preparer = DataPreparer()
-        self.spectral_extractor = SpectralFeatureCalculator()
+        self.spectral_extractor = SpectralFeatureCalculator(n_jobs=n_jobs)
         self.meteo_extractor = MeteoFeatureCalculator()
 
         self.basic_indices = BASIC_INDICES

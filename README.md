@@ -123,6 +123,14 @@ An export failure leaves the cached predictions available for another save attem
 The previous `processed_path` and `output_prefix` arguments of `predict()` have
 been removed: read Parquet explicitly and pass the output prefix to `save()`.
 
+Set `CropClassifier(..., n_jobs=4)` to use four workers for spectral feature
+preparation in `build_features()` and `run()`. The default is `n_jobs=1`
+(sequential); `-1` explicitly uses all available CPUs. Other negative integers
+follow joblib semantics, while zero, booleans, and nonintegers are rejected.
+`PredictorPipeline(n_jobs=...)` and `SpectralFeatureCalculator(n_jobs=...)` also
+accept this setting when used directly. This controls joblib workers rather than
+CatBoost prediction threads or a global CPU limit for other libraries.
+
 For the full workflow, also set `gee_project` and `year`, then call `run()`:
 `download_data()` → `build_features()` → read Parquet → `predict(data)` → save CSV
 and export to `output_format` when another format is selected.

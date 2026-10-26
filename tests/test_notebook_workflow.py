@@ -26,15 +26,13 @@ class NotebookWorkflowTests(unittest.TestCase):
                 output_dir=output_dir,
                 model_type=ModelType.FINETUNED,
                 output_format=OutputFormat.TABLE,
+                n_jobs=1,
             )
 
-            with patch(
-                "crop_classifier.feature.processors.spectral_calculator.N_JOBS", 1
-            ):
-                feature_path = classifier.build_features(
-                    spectral_path=PROJECT_ROOT / "data/raw/fields_spectral.csv",
-                    meteo_path=PROJECT_ROOT / "data/raw/fields_meteo.csv",
-                )
+            feature_path = classifier.build_features(
+                spectral_path=PROJECT_ROOT / "data/raw/fields_spectral.csv",
+                meteo_path=PROJECT_ROOT / "data/raw/fields_meteo.csv",
+            )
 
             features = pd.read_parquet(feature_path)
             self.assertEqual(len(features), 29)
@@ -81,9 +79,6 @@ class NotebookScenarioTests(unittest.TestCase):
                 "socket.socket.connect",
                 side_effect=AssertionError("Network access must not be used."),
             )
-        )
-        self.enterContext(
-            patch("crop_classifier.feature.processors.spectral_calculator.N_JOBS", 1)
         )
 
     def write_field_inputs(self, spectral_path, meteo_path, nrows=2):

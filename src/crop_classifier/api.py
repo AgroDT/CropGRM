@@ -5,7 +5,7 @@ from typing import Optional, Union
 import pandas as pd
 
 from crop_classifier._optional import import_optional
-from crop_classifier.config import ModelType, OutputFormat
+from crop_classifier.config import ModelType, OutputFormat, validate_n_jobs
 from crop_classifier.prediction.exporters import ExporterFactory
 from crop_classifier.prediction.prediction_pipeline import CropClassifierPipeline
 
@@ -30,6 +30,8 @@ class CropClassifier:
         threshold: float = 0.5,
         output_format: Union[OutputFormat, str] = OutputFormat.TABLE,
         epsg_code: Optional[str] = None,
+        *,
+        n_jobs: int = 1,
     ):
         """Initialize the crop classification workflow.
 
@@ -49,7 +51,10 @@ class CropClassifier:
                 export in run().
             epsg_code (str | None): Default CRS for raster save() and run() output.
                 A CRS is required for point raster output.
+            n_jobs (int): Spectral feature workers; 1 runs sequentially, -1 uses all
+                available CPUs. Other nonzero integers follow joblib semantics.
         """
+        self.n_jobs = validate_n_jobs(n_jobs)
         self.input_file = Path(shapefile_path) if shapefile_path is not None else None
         self.project_id = gee_project
         self.year = year
@@ -162,7 +167,7 @@ class CropClassifier:
             "crop_classifier.feature.feature_pipeline", "features"
         )
         dst_path.parent.mkdir(parents=True, exist_ok=True)
-        pipeline.PredictorPipeline().build_features(
+        pipeline.PredictorPipeline(n_jobs=self.n_jobs).build_features(
             self.use_zonal_spectral, src_spectral, src_meteo, dst_path
         )
 

@@ -1,12 +1,9 @@
-import multiprocessing
-
 import numpy as np
 
 DATA_TYPE_SPECTRAL = "spectral"
 DATA_TYPE_METEO = "meteorological"
 
 CHUNK_SIZE = 50_000
-N_JOBS = multiprocessing.cpu_count()
 
 FEATURE_CONFIG = {
     "red": {"pipeline": "mean"},

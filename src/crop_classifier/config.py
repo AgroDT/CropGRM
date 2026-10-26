@@ -5,6 +5,14 @@ from typing import Dict
 
 ROOT_DIR = Path(__file__).parent
 
+
+def validate_n_jobs(n_jobs: int) -> int:
+    """Validate a nonzero integer worker count without importing feature tools."""
+    if isinstance(n_jobs, bool) or not isinstance(n_jobs, int) or n_jobs == 0:
+        raise ValueError("n_jobs must be a nonzero integer.")
+    return n_jobs
+
+
 # Features configuration
 BASIC_INDICES = ["blue", "green", "red", "nir", "swir1", "swir2"]
 METEO_INDICES = ["temperature", "precipitation"]

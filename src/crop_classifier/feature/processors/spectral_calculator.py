@@ -8,12 +8,11 @@ import polars as pl
 from joblib import Parallel, delayed
 from scipy.interpolate import interp1d
 
-from crop_classifier.config import BASIC_INDICES
+from crop_classifier.config import BASIC_INDICES, validate_n_jobs
 from crop_classifier.feature.constants import (
     BOUNDS_CONFIG,
     CHUNK_SIZE,
     FEATURE_CONFIG,
-    N_JOBS,
     X_VALUES,
 )
 from crop_classifier.feature.math.curves import (
@@ -35,13 +34,18 @@ class SpectralFeatureCalculator:
         pipelines (dict[str, Callable]): Registered per-index feature processors.
     """
 
-    def __init__(self):
-        """Initialize spectral feature settings and built-in processors."""
+    def __init__(self, n_jobs: int = 1):
+        """Initialize spectral settings and built-in processors.
+
+        Args:
+            n_jobs (int): Nonzero joblib worker count; 1 is sequential, -1 uses all
+                available CPUs. Defaults to 1.
+        """
         self.feature_config = FEATURE_CONFIG
         self.bounds_config = BOUNDS_CONFIG
         self.x_values = X_VALUES
         self.basic_indices = BASIC_INDICES
-        self.n_jobs = N_JOBS
+        self.n_jobs = validate_n_jobs(n_jobs)
         self.chunk_size = CHUNK_SIZE
 
         self.pipelines: Dict[str, Callable] = {

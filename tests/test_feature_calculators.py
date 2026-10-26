@@ -46,8 +46,7 @@ class FeatureCalculatorTests(unittest.TestCase):
         )
 
     def test_missing_index_values_keep_dates_aligned_before_fitting(self):
-        calculator = SpectralFeatureCalculator()
-        calculator.n_jobs = 1
+        calculator = SpectralFeatureCalculator(n_jobs=1)
         calculator.feature_config = {"ndmi": {"pipeline": "curve"}}
         data = self.curve_input([90, 100, 110, 120, 130, 140, 150]).with_columns(
             pl.Series("swir1", [0.2, None, 0.2, 0.2, 0.2, 0.2, 0.2])
@@ -126,8 +125,7 @@ class FeatureCalculatorTests(unittest.TestCase):
         )
 
     def test_short_curve_series_logs_reason_without_attempting_fit(self):
-        calculator = SpectralFeatureCalculator()
-        calculator.n_jobs = 1
+        calculator = SpectralFeatureCalculator(n_jobs=1)
         calculator.feature_config = {"ndmi": {"pipeline": "curve"}}
         data = self.curve_input([50, 90, 100, 110, 120, 130])
         module = "crop_classifier.feature.processors.spectral_calculator"
@@ -147,8 +145,7 @@ class FeatureCalculatorTests(unittest.TestCase):
         module = "crop_classifier.feature.processors.spectral_calculator"
         for parameters in (None, np.full(6, np.nan)):
             with self.subTest(parameters=parameters):
-                calculator = SpectralFeatureCalculator()
-                calculator.n_jobs = 1
+                calculator = SpectralFeatureCalculator(n_jobs=1)
                 calculator.feature_config = {"ndmi": {"pipeline": "curve"}}
                 data = self.curve_input([90, 110, 130, 150, 170, 190])
                 original = data.clone()
@@ -167,8 +164,7 @@ class FeatureCalculatorTests(unittest.TestCase):
                 self.assertTrue(data.equals(original))
 
     def test_short_series_does_not_discard_successful_field_features(self):
-        calculator = SpectralFeatureCalculator()
-        calculator.n_jobs = 1
+        calculator = SpectralFeatureCalculator(n_jobs=1)
         calculator.feature_config = {"ndmi": {"pipeline": "curve"}}
         short = self.curve_input([90, 110, 130, 150, 170])
         complete = self.curve_input([90, 110, 130, 150, 170, 190]).with_columns(
