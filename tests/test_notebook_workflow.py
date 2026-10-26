@@ -72,7 +72,7 @@ class NotebookScenarioTests(unittest.TestCase):
         self.folder = Path(self.enterContext(tempfile.TemporaryDirectory()))
         self.enterContext(
             patch(
-                "crop_classifier.api.GEEDownloadingDataPipeline",
+                "crop_classifier.gee_extractor.gee_pipeline.GEEDownloadingDataPipeline",
                 side_effect=AssertionError("Earth Engine must not be used."),
             )
         )

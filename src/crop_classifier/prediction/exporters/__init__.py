@@ -1,11 +1,9 @@
 import pandas as pd
 
+from crop_classifier._optional import import_optional
 from crop_classifier.config import OutputFormat
 from crop_classifier.prediction.exporters.base import BaseExporter
-from crop_classifier.prediction.exporters.point_raster import PointRasterExporter
-from crop_classifier.prediction.exporters.polygon_raster import PolygonRasterExporter
 from crop_classifier.prediction.exporters.table import TableExporter
-from crop_classifier.prediction.exporters.vector import VectorExporter
 
 
 class ExporterFactory:
@@ -50,12 +48,21 @@ class ExporterFactory:
             return TableExporter()
 
         if output_format == OutputFormat.VECTOR:
-            return VectorExporter()
+            module = import_optional(
+                "crop_classifier.prediction.exporters.vector", "geo"
+            )
+            return module.VectorExporter()
 
         if output_format == OutputFormat.RASTER:
             if use_zonal_spectral:
-                return PolygonRasterExporter()
+                module = import_optional(
+                    "crop_classifier.prediction.exporters.polygon_raster", "geo"
+                )
+                return module.PolygonRasterExporter()
             elif not use_zonal_spectral:
-                return PointRasterExporter()
+                module = import_optional(
+                    "crop_classifier.prediction.exporters.point_raster", "geo"
+                )
+                return module.PointRasterExporter()
 
         raise ValueError(f"Unsupported export format: {output_format}")

@@ -1,10 +1,11 @@
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import numpy as np
 import polars as pl
 
 from crop_classifier.feature.math.curves import double_logistic_function
+from crop_classifier.feature.math.derivatives import get_fourth_derivative
 from crop_classifier.feature.processors.add_indices import add_indices
 from crop_classifier.feature.processors.meteo_calculator import MeteoFeatureCalculator
 from crop_classifier.feature.processors.spectral_calculator import (
@@ -13,6 +14,37 @@ from crop_classifier.feature.processors.spectral_calculator import (
 
 
 class FeatureCalculatorTests(unittest.TestCase):
+    def test_fourth_derivative_is_cached_and_preserves_the_seasonal_formula(self):
+        import sympy as sp
+
+        get_fourth_derivative.cache_clear()
+        self.addCleanup(get_fourth_derivative.cache_clear)
+        with patch.object(sp, "lambdify", wraps=sp.lambdify) as build:
+            derivative = get_fourth_derivative()
+            self.assertIs(get_fourth_derivative(), derivative)
+            build.assert_called_once()
+        x = sp.symbols("x")
+        baseline, peak, growth, decay, growth_slope, decay_slope = sp.symbols(
+            "wNDVI mNDVI S A mS mA"
+        )
+        expression = baseline + (peak - baseline) * (
+            1 / (1 + sp.exp(-growth_slope * (x - growth)))
+            + 1 / (1 + sp.exp(decay_slope * (x - decay)))
+            - 1
+        )
+        for _ in range(4):
+            expression = sp.diff(expression, x)
+        reference = sp.lambdify(
+            [x, baseline, peak, growth, decay, growth_slope, decay_slope],
+            expression,
+            "numpy",
+        )
+        days = np.linspace(90, 305, 30)
+        params = [0.1, 0.9, 130, 260, 0.05, 0.07]
+        np.testing.assert_allclose(
+            derivative(days, *params), reference(days, *params), atol=1e-12
+        )
+
     def test_missing_index_values_keep_dates_aligned_before_fitting(self):
         calculator = SpectralFeatureCalculator()
         calculator.n_jobs = 1
@@ -249,8 +281,8 @@ class FeatureCalculatorTests(unittest.TestCase):
                 self.subTest(year=year),
                 patch(f"{module}.fit_curve", return_value=params),
                 patch(
-                    f"{module}.FOURTH_DERIVATIVE_LAMBDIFIED",
-                    return_value=np.zeros_like(calculator.x_values),
+                    f"{module}.get_fourth_derivative",
+                    return_value=Mock(return_value=np.zeros_like(calculator.x_values)),
                 ),
             ):
                 result = calculator.process_spectral_features_curve(

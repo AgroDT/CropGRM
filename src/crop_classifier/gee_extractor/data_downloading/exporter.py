@@ -3,6 +3,7 @@ from tempfile import TemporaryDirectory
 
 import ee
 
+from crop_classifier._optional import import_optional
 from crop_classifier.gee_extractor.data_downloading.base import _BaseGEEExtractor
 
 
@@ -34,10 +35,7 @@ class RasterExporter(_BaseGEEExtractor):
         Raises:
             ImportError: If geedim is unavailable.
         """
-        try:
-            import geedim  # noqa
-        except ImportError:
-            raise ImportError("Install geedim: pip install geedim")
+        import_optional("geedim", "gee")
         prep = image.gd.prepareForExport(
             crs=crs, scale=scale, region=region, dtype=dtype
         )

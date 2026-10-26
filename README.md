@@ -40,6 +40,44 @@ a fine-tuned model (available in [models](./src/crop_classifier/models)):
   CropGRM-small on local scientific center data
 
 
+## Installation
+
+Run these commands from the checked-out repository directory with Python 3.12
+or newer. They install the local project; publication on PyPI is not required.
+
+```sh
+# Inference on prepared features, Parquet input, and CSV export
+python -m pip install .
+
+# Feature preparation from local spectral and weather tables
+python -m pip install ".[features]"
+
+# Earth Engine downloading, including TIFF-to-Parquet conversion
+python -m pip install ".[gee]"
+
+# Vector and raster prediction export; standalone TIFF conversion
+python -m pip install ".[geo]"
+
+# Complete downloading, feature preparation, inference, and export workflow
+python -m pip install ".[features,gee,geo]"
+```
+
+Extras can be combined: `.[features,geo]` prepares local observations and exports
+maps without requiring Earth Engine. `gee` includes its own geospatial download
+dependencies but does not include feature preparation. A complete `run()` needs
+`features` and `gee`; add `geo` when selecting geographic prediction output.
+
+The base package declares CatBoost, NumPy, pandas, and PyArrow. CatBoost itself
+also depends on libraries such as SciPy and Matplotlib. Base inference does not
+import CropGRM feature preparation, Earth Engine, geographic exporters, or SymPy.
+Optional capabilities are loaded when used; a missing dependency reports the
+corresponding extra. The symbolic seasonal derivative is initialized on demand
+and cached per process during feature calculation.
+
+For development with uv, use `uv sync --locked --all-extras`, then
+`uv run --no-sync python -m unittest discover -s tests -v`. For a base-only
+environment, use `uv sync --locked --no-dev`.
+
 ## Examples
 
 Examples and instructions are available in [notebooks](./notebooks):

@@ -4,9 +4,8 @@ from typing import Optional, Union
 
 import pandas as pd
 
+from crop_classifier._optional import import_optional
 from crop_classifier.config import ModelType, OutputFormat
-from crop_classifier.feature.feature_pipeline import PredictorPipeline
-from crop_classifier.gee_extractor.gee_pipeline import GEEDownloadingDataPipeline
 from crop_classifier.prediction.exporters import ExporterFactory
 from crop_classifier.prediction.prediction_pipeline import CropClassifierPipeline
 
@@ -116,12 +115,13 @@ class CropClassifier:
     # --- Pipeline Steps ---
 
     def download_data(self) -> None:
-        """Download spectral and meteorological observations from Earth Engine."""
+        """Download Earth Engine observations; requires the gee extra."""
         if self.input_file is None or self.project_id is None or self.year is None:
             raise ValueError(
                 "Downloading requires shapefile_path, gee_project, and year."
             )
-        GEEDownloadingDataPipeline(
+        pipeline = import_optional("crop_classifier.gee_extractor.gee_pipeline", "gee")
+        pipeline.GEEDownloadingDataPipeline(
             project_id=self.project_id,
             year=self.year,
             output_dir=self.output_dir,
@@ -150,6 +150,7 @@ class CropClassifier:
         Raises:
             ValueError: If the datasets have no common spatial IDs or a file format is
                 unsupported.
+            ModuleNotFoundError: If the features extra is not installed.
         """
         src_spectral = (
             Path(spectral_path) if spectral_path else self.default_spectral_path
@@ -157,8 +158,11 @@ class CropClassifier:
         src_meteo = Path(meteo_path) if meteo_path else self.default_meteo_path
         dst_path = Path(output_path) if output_path else self.default_processed_path
 
+        pipeline = import_optional(
+            "crop_classifier.feature.feature_pipeline", "features"
+        )
         dst_path.parent.mkdir(parents=True, exist_ok=True)
-        PredictorPipeline().build_features(
+        pipeline.PredictorPipeline().build_features(
             self.use_zonal_spectral, src_spectral, src_meteo, dst_path
         )
 
@@ -228,6 +232,7 @@ class CropClassifier:
             ValueError: If predictions, required columns, geometry, CRS, or valid
                 export options are missing, or the input format is unsupported.
             FileNotFoundError: If an explicit CSV or geometry file is unavailable.
+            ModuleNotFoundError: If geographic export dependencies are missing.
         """
         fmt = OutputFormat(
             output_format if output_format is not None else self.output_format

@@ -13,7 +13,6 @@ from crop_classifier.feature.constants import (
     BOUNDS_CONFIG,
     CHUNK_SIZE,
     FEATURE_CONFIG,
-    FOURTH_DERIVATIVE_LAMBDIFIED,
     N_JOBS,
     X_VALUES,
 )
@@ -22,6 +21,7 @@ from crop_classifier.feature.math.curves import (
     fit_curve,
     sort_extrema_points,
 )
+from crop_classifier.feature.math.derivatives import get_fourth_derivative
 from crop_classifier.feature.math.filtering_outliers import hampel_filter
 from crop_classifier.feature.processors.add_indices import add_indices
 
@@ -166,9 +166,7 @@ class SpectralFeatureCalculator:
         doy_max = float(self.x_values[np.argmax(finer_values)])
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=RuntimeWarning)
-            fourth_derivative_values = FOURTH_DERIVATIVE_LAMBDIFIED(
-                self.x_values, *params
-            )
+            fourth_derivative_values = get_fourth_derivative()(self.x_values, *params)
         zero_crossings_fourth = np.where(np.diff(np.sign(fourth_derivative_values)))[0]
         extrema_points_third_x = self.x_values[zero_crossings_fourth]
         extrema_points_third_x = sorted(set(extrema_points_third_x))
