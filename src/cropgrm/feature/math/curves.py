@@ -71,7 +71,6 @@ def fit_curve(t, ndvi_observed, bounds):
         return params if np.isfinite(params).all() else None
 
 
-
 @staticmethod
 def sort_extrema_points(extrema_points_x, doy_max):
     """Assign extrema before and after the seasonal peak.
