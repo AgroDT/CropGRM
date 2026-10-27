@@ -215,20 +215,32 @@ class FeatureCalculatorTests(unittest.TestCase):
 
     def test_failed_curve_fits_log_reason_and_preserve_spatial_rows(self):
         module = "cropgrm.feature.processors.spectral_calculator"
-        for parameters in (None, np.full(6, np.nan)):
+        for parameters in (
+            None,
+            np.full(6, np.nan),
+            np.full(6, np.inf),
+            RuntimeError("Optimal parameters not found"),
+        ):
             with self.subTest(parameters=parameters):
                 calculator = SpectralFeatureCalculator(n_jobs=1)
                 calculator.feature_config = {"ndmi": {"pipeline": "curve"}}
                 data = self.curve_input([90, 110, 130, 150, 170, 190])
                 original = data.clone()
                 with (
-                    patch(f"{module}.fit_curve", return_value=parameters) as fit,
+                    patch(
+                        f"{module}.fit_curve",
+                        return_value=parameters,
+                        side_effect=(
+                            parameters if isinstance(parameters, RuntimeError) else None
+                        ),
+                    ) as fit,
                     self.assertLogs(module, level="WARNING") as logs,
                 ):
                     result = calculator.calculate_spectral_features(data)
                 fit.assert_called_once()
                 self.assertEqual(result["field_id"].to_list(), [7])
                 self.assertIsNone(result["ndmi_S"][0])
+                self.assertEqual(result["ndmi_fit_status"][0], "fit_failed")
                 self.assertIn(
                     "0 groups have fewer than six observations", logs.output[-1]
                 )

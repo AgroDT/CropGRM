@@ -27,12 +27,26 @@ class CurveFittingTests(unittest.TestCase):
         np.testing.assert_array_equal(optimize.call_args.args[2], original)
         np.testing.assert_array_equal(self.values, original)
 
-    def test_nonconvergence_returns_none(self):
-        with patch(
-            "cropgrm.feature.math.curves.curve_fit",
-            side_effect=RuntimeError("Optimal parameters not found"),
+    def test_nonconvergence_raises_runtime_error(self):
+        with (
+            patch(
+                "cropgrm.feature.math.curves.curve_fit",
+                side_effect=RuntimeError("Optimal parameters not found"),
+            ),
+            self.assertRaisesRegex(RuntimeError, "Optimal parameters not found"),
         ):
-            self.assertIsNone(fit_curve(self.days, self.values, self.bounds))
+            fit_curve(self.days, self.values, self.bounds)
+
+    def test_nonfinite_parameters_are_returned_for_caller_validation(self):
+        for value in (np.nan, np.inf):
+            params = np.full(6, value)
+            with (
+                self.subTest(value=value),
+                patch(
+                    "cropgrm.feature.math.curves.curve_fit", return_value=(params, None)
+                ),
+            ):
+                self.assertIs(fit_curve(self.days, self.values, self.bounds), params)
 
     def test_invalid_bounds_are_not_hidden(self):
         bounds = ([1, -0.2, 0, 0, 0, 0], [-0.2, 1, 365, 365, 1, 1])

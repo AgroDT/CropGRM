@@ -40,11 +40,12 @@ def fit_curve(t, ndvi_observed, bounds):
             parameters in wNDVI, mNDVI, S, A, mS, mA order.
 
     Returns:
-        numpy.ndarray | None: Six fitted parameters in bounds order, or None if fitting
-            fails or returns nonfinite parameters.
+        numpy.ndarray: Six parameters returned by the optimizer in bounds order.
+            The caller is responsible for checking that the parameters are finite.
 
     Raises:
         InsufficientObservationsError: If fewer than six finite observations remain.
+        RuntimeError: If the optimizer fails to converge.
     """
     t = np.asarray(t)
     ndvi_observed = np.asarray(ndvi_observed)
@@ -68,7 +69,7 @@ def fit_curve(t, ndvi_observed, bounds):
             bounds=bounds,
             maxfev=5000,
         )
-        return params if np.isfinite(params).all() else None
+        return params
 
 
 @staticmethod

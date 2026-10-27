@@ -193,6 +193,9 @@ class SpectralFeatureCalculator:
             )
             return None
 
+        if params is None or not np.isfinite(params).all():
+            return None
+
         wNDVI, mNDVI, S, A, mS, mA = params
 
         finer_values = double_logistic_function(self.x_values, *params)
