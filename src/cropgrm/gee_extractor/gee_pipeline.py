@@ -1,3 +1,4 @@
+import json
 import logging
 from datetime import datetime, timezone
 from hashlib import sha256
@@ -8,6 +9,7 @@ import ee
 import geemap
 import geopandas as gpd
 
+from cropgrm.config import BASIC_INDICES, METEO_INDICES
 from cropgrm.gee_extractor import (
     MeteoExtractor,
     RasterExporter,
@@ -62,7 +64,9 @@ class GEEDownloadingDataPipeline:
 
         Field mode writes spectral and weather CSV files. Pixel mode writes scene
         GeoTIFFs in year directories and combined Parquet tables. Existing scenes
-        are reused. Pixel conversion fails if no weather scenes are available.
+        are reused only for matching geometry and export settings. Legacy scene
+        files without a matching identity are retained but not reused.
+        Pixel conversion fails if no weather scenes are available.
 
         Args:
             shapefile_path (str | Path): Shapefile defining the extraction region and
@@ -171,20 +175,33 @@ class GEEDownloadingDataPipeline:
         scene_ids = collection.aggregate_array("system:index").getInfo()
         export_dir.mkdir(parents=True, exist_ok=True)
         files = []
+        export_options = {"scale": 30, "crs": "EPSG:4326", "dtype": "float32"}
+        cache_key = self._scene_cache_key(
+            geometry,
+            source="LANDSAT/C02/T1_L2",
+            bands=BASIC_INDICES,
+            cloud_cover_limit=50,
+            satellites=("L5", "L8", "L9"),
+            **export_options,
+        )
 
         for i, ts in enumerate(timestamps):
             date_str = datetime.fromtimestamp(ts / 1000, tz=timezone.utc).strftime(
                 "%Y-%m-%d"
             )
             scene_key = sha256(scene_ids[i].encode()).hexdigest()
-            ts_filename = export_dir / f"{base_name}_{scene_key}_{date_str}.tif"
+            ts_filename = (
+                export_dir / f"{base_name}_{cache_key}_{scene_key}_{date_str}.tif"
+            )
             files.append(ts_filename)
             if ts_filename.exists():
                 logger.info("Reusing existing spectral scene: %s", ts_filename)
                 continue
 
             img = ee.Image(collection.toList(count).get(i)).clip(geometry)
-            self.raster_exporter.to_geotiff(img, geometry, ts_filename, scale=30)
+            self.raster_exporter.to_geotiff(
+                img, geometry, ts_filename, **export_options
+            )
 
         logger.info(
             "Prepared %d spectral GeoTIFF scenes, including existing files.", count
@@ -241,21 +258,42 @@ class GEEDownloadingDataPipeline:
         timestamps = collection.aggregate_array("system:time_start").getInfo()
         export_dir.mkdir(parents=True, exist_ok=True)
         files = []
+        export_options = {"scale": 30, "crs": "EPSG:4326", "dtype": "float32"}
+        cache_key = self._scene_cache_key(
+            geometry,
+            source="ECMWF/ERA5_LAND/DAILY_AGGR",
+            bands=METEO_INDICES,
+            **export_options,
+        )
 
         for i, ts in enumerate(timestamps):
             date_str = datetime.fromtimestamp(ts / 1000, tz=timezone.utc).strftime(
                 "%Y-%m-%d"
             )
-            ts_filename = export_dir / f"{base_name}_{date_str}.tif"
+            ts_filename = export_dir / f"{base_name}_{cache_key}_{date_str}.tif"
             files.append(ts_filename)
             if ts_filename.exists():
                 logger.info("Reusing existing meteorological scene: %s", ts_filename)
                 continue
 
             img = ee.Image(collection.toList(count).get(i)).clip(geometry)
-            self.raster_exporter.to_geotiff(img, geometry, ts_filename, scale=30)
+            self.raster_exporter.to_geotiff(
+                img, geometry, ts_filename, **export_options
+            )
 
         logger.info(
             "Prepared %d meteo GeoTIFF scenes, including existing files.", count
         )
         return files
+
+    @staticmethod
+    def _scene_cache_key(geometry: ee.Geometry, **export_options) -> str:
+        """Identify actual clipping geometry, export options, and processing version."""
+        identity = {
+            "geometry": geometry.getInfo(),
+            "export": export_options,
+            "processing_version": 1,
+        }
+        return sha256(
+            json.dumps(identity, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()

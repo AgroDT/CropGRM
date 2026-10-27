@@ -1,6 +1,6 @@
 import tempfile
 import unittest
-from unittest.mock import call, patch
+from unittest.mock import patch
 
 import geopandas as gpd
 import pandas as pd
@@ -68,20 +68,15 @@ class RasterPixelSizeAPITests(unittest.TestCase):
                 patch("pandas.read_parquet") as read,
                 patch.object(classifier, "predict") as predict,
                 patch.object(classifier, "save") as save,
+                patch.object(classifier, "_save_prepared") as prepared,
             ):
                 classifier.run(pixel_size=12.5)
             predict.assert_called_once_with(read.return_value)
-            self.assertEqual(
-                save.call_args_list,
-                [
-                    call(OutputFormat.TABLE, predictions=predict.return_value),
-                    call(
-                        OutputFormat.RASTER,
-                        predictions=predict.return_value,
-                        pixel_size=12.5,
-                    ),
-                ],
+            save.assert_called_once_with(
+                OutputFormat.TABLE, predictions=predict.return_value
             )
+            self.assertEqual(prepared.call_args.kwargs["size"], 12.5)
+            self.assertEqual(prepared.call_args.kwargs["fmt"], OutputFormat.RASTER)
 
     def test_api_rejects_invalid_size_before_reading_data(self):
         with tempfile.TemporaryDirectory() as folder:

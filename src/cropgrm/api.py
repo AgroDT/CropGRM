@@ -1,4 +1,3 @@
-from math import isfinite
 from pathlib import Path
 from typing import Optional, Union
 
@@ -7,6 +6,10 @@ import pandas as pd
 from cropgrm._optional import import_optional
 from cropgrm.config import ModelType, OutputFormat, validate_n_jobs
 from cropgrm.prediction.exporters import ExporterFactory
+from cropgrm.prediction.exporters.base import (
+    validate_geometry_path,
+    validate_pixel_size,
+)
 from cropgrm.prediction.prediction_pipeline import CropClassifierPipeline
 
 
@@ -178,7 +181,9 @@ class CropClassifier:
             data (pandas.DataFrame): Prepared model features and spatial keys.
 
         Returns:
-            pandas.DataFrame: All input columns, classes, and maximum probability.
+            pandas.DataFrame: Input columns, classes, probability, and prediction_status.
+                Failed ndmi/wrdvi fits are skipped with class 0 and NaN probability
+                when the input contains both index fit_status columns.
 
         Raises:
             TypeError: If data is not a pandas DataFrame.
@@ -236,6 +241,26 @@ class CropClassifier:
             FileNotFoundError: If an explicit CSV or geometry file is unavailable.
             ModuleNotFoundError: If geographic export dependencies are missing.
         """
+        options = self._prepare_export_options(
+            output_format,
+            fields_geometry_path,
+            input_epsg_code,
+            output_epsg_code,
+            pixel_size,
+        )
+        return self._save_prepared(
+            output_prefix=output_prefix, predictions=predictions, **options
+        )
+
+    def _prepare_export_options(
+        self,
+        output_format=None,
+        fields_geometry_path=None,
+        input_epsg_code="EPSG:4326",
+        output_epsg_code=None,
+        pixel_size=None,
+    ):
+        """Validate public export options once before any expensive work."""
         fmt = OutputFormat(
             output_format if output_format is not None else self.output_format
         )
@@ -254,8 +279,34 @@ class CropClassifier:
         ):
             raise ValueError("input_epsg_code requires point raster output.")
         size = 30.0 if pixel_size is None else pixel_size
-        if fmt == OutputFormat.RASTER and (not isfinite(size) or size <= 0):
-            raise ValueError("pixel_size must be finite and positive.")
+        if fmt == OutputFormat.RASTER:
+            validate_pixel_size(size)
+        geometry = fields_geometry_path
+        if geometry is None:
+            geometry = self.input_file
+        epsg = output_epsg_code if output_epsg_code is not None else self.epsg_code
+        if fmt == OutputFormat.RASTER and not self.use_zonal_spectral:
+            if fields_geometry_path is not None:
+                raise ValueError("Point raster uses lon/lat, not fields_geometry_path.")
+        return {
+            "fmt": fmt,
+            "geometry": geometry,
+            "input_epsg_code": input_epsg_code,
+            "epsg": epsg,
+            "size": size,
+        }
+
+    def _save_prepared(
+        self,
+        fmt,
+        geometry,
+        input_epsg_code,
+        epsg,
+        size,
+        output_prefix=None,
+        predictions=None,
+    ) -> Path:
+        """Resolve predictions and export using already validated options."""
         source = self._predictions if predictions is None else predictions
         if source is None:
             raise ValueError(
@@ -270,21 +321,12 @@ class CropClassifier:
             )
         if not isinstance(source, pd.DataFrame):
             raise ValueError("predictions must be a DataFrame or a saved CSV path.")
-        exporter = ExporterFactory.get_exporter(fmt, self.use_zonal_spectral, source)
-        geometry = fields_geometry_path
-        if geometry is None:
-            geometry = self.input_file
-        needs_geometry = fmt == OutputFormat.VECTOR or (
+        exporter = ExporterFactory._get_exporter(fmt, self.use_zonal_spectral, source)
+        if fmt == OutputFormat.VECTOR or (
             fmt == OutputFormat.RASTER and self.use_zonal_spectral
-        )
-        if needs_geometry and geometry is None:
-            raise ValueError(
-                "fields_geometry_path is required for field geometry export."
-            )
-        epsg = output_epsg_code if output_epsg_code is not None else self.epsg_code
+        ):
+            validate_geometry_path(geometry)
         if fmt == OutputFormat.RASTER and not self.use_zonal_spectral:
-            if fields_geometry_path is not None:
-                raise ValueError("Point raster uses lon/lat, not fields_geometry_path.")
             if not input_epsg_code or not epsg:
                 raise ValueError(
                     "Point raster requires input_epsg_code and output_epsg_code."
@@ -295,7 +337,7 @@ class CropClassifier:
             else self.default_prediction_prefix
         )
         prefix.parent.mkdir(parents=True, exist_ok=True)
-        exporter.export(
+        exporter._export_prepared(
             df=source,
             output_prefix=prefix,
             fields_geometry_path=geometry,
@@ -325,11 +367,8 @@ class CropClassifier:
         Raises:
             ValueError: If raster spacing is invalid or supplied for another format.
         """
-        fmt = OutputFormat(self.output_format)
-        if pixel_size is not None and fmt != OutputFormat.RASTER:
-            raise ValueError("pixel_size requires raster output.")
-        if pixel_size is not None and (not isfinite(pixel_size) or pixel_size <= 0):
-            raise ValueError("pixel_size must be finite and positive.")
+        options = self._prepare_export_options(pixel_size=pixel_size)
+        fmt = options["fmt"]
         self._predictions = None
         self.download_data()
         processed_path = self.build_features()
@@ -337,5 +376,5 @@ class CropClassifier:
         predictions = self.predict(data)
         self.save(OutputFormat.TABLE, predictions=predictions)
         if fmt != OutputFormat.TABLE:
-            self.save(fmt, predictions=predictions, pixel_size=pixel_size)
+            self._save_prepared(predictions=predictions, **options)
         return predictions

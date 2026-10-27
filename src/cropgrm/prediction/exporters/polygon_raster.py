@@ -10,7 +10,11 @@ import rasterio
 from rasterio.features import rasterize
 from rasterio.transform import from_origin
 
-from cropgrm.prediction.exporters.base import BaseExporter
+from cropgrm.prediction.exporters.base import (
+    BaseExporter,
+    validate_geometry_path,
+    validate_pixel_size,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -47,12 +51,28 @@ class PolygonRasterExporter(BaseExporter):
         Raises:
             ValueError: If inputs, geometries, bounds, or class codes are invalid.
         """
-        if not fields_geometry_path:
-            raise ValueError(
-                "For polygon rasterization 'fields_geometry_path' required."
-            )
-        if not isfinite(pixel_size) or pixel_size <= 0:
-            raise ValueError("pixel_size must be finite and positive.")
+        validate_geometry_path(fields_geometry_path)
+        validate_pixel_size(pixel_size)
+        self._export_prepared(
+            df,
+            output_prefix,
+            fields_geometry_path,
+            output_epsg_code,
+            pixel_size,
+            nodata,
+        )
+
+    def _export_prepared(
+        self,
+        df,
+        output_prefix,
+        fields_geometry_path,
+        output_epsg_code=None,
+        pixel_size=30.0,
+        nodata=255,
+        **kwargs,
+    ):
+        """Rasterize field geometry using validated export options."""
         if not isfinite(nodata) or not 1 <= nodata <= 255 or nodata != int(nodata):
             raise ValueError("nodata must be an integer in 1..255.")
 

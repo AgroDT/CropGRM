@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import numpy as np
 
-from cropgrm.feature.math.curves import fit_curve
+from cropgrm.feature.math.curves import InsufficientObservationsError, fit_curve
 
 
 class CurveFittingTests(unittest.TestCase):
@@ -38,3 +38,15 @@ class CurveFittingTests(unittest.TestCase):
         bounds = ([1, -0.2, 0, 0, 0, 0], [-0.2, 1, 365, 365, 1, 1])
         with self.assertRaises(ValueError):
             fit_curve(self.days, self.values, bounds)
+
+    def test_insufficient_finite_observations_raise_before_optimization(self):
+        for values in (self.values[:5], np.array([0.1, np.nan, 0.2, 0.3, 0.4, 0.5])):
+            with (
+                self.subTest(values=values),
+                patch("cropgrm.feature.math.curves.curve_fit") as optimize,
+            ):
+                with self.assertRaisesRegex(
+                    InsufficientObservationsError, "received 5"
+                ):
+                    fit_curve(self.days[: len(values)], values, self.bounds)
+                optimize.assert_not_called()

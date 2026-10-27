@@ -17,7 +17,8 @@ class MeteoFeatureCalculator:
 
         Returns:
             polars.DataFrame: One row per field_id with median_t, sum_t, median_prec,
-                and sum_prec columns suffixed by month. Temperature features retain
+                and sum_prec columns suffixed by month. April through October columns
+                are always present; absent months are null. Temperature features retain
                 kelvin units. Precipitation features retain meter units.
         """
 
@@ -57,6 +58,11 @@ class MeteoFeatureCalculator:
                     str(m): f"{col}_{m}"
                     for m in calculated_df["month"].unique().to_list()
                 }
+            )
+            pivot_df = pivot_df.with_columns(
+                pl.lit(None, dtype=pl.Float64).alias(f"{col}_{month}")
+                for month in range(4, 11)
+                if f"{col}_{month}" not in pivot_df.columns
             )
 
             if result_df is None:

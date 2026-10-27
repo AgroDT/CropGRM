@@ -29,6 +29,7 @@ class PredictionSaveTests(unittest.TestCase):
             probability=[0.8, 0.9],
             **{"class": [1, 7]},
             class_name=["winter wheat", "sunflower"],
+            prediction_status=["predicted", "predicted"],
         )
         self.fields = gpd.GeoDataFrame(
             {"field_id": ["001", "002"]},
@@ -55,7 +56,15 @@ class PredictionSaveTests(unittest.TestCase):
             csv = self.classifier.save(OutputFormat.TABLE)
             pd.testing.assert_frame_equal(
                 pd.read_csv(csv, dtype={"field_id": str}, float_precision="round_trip"),
-                result[["field_id", "class_name", "class"]],
+                result[
+                    [
+                        "field_id",
+                        "class_name",
+                        "class",
+                        "probability",
+                        "prediction_status",
+                    ]
+                ],
             )
             with patch("geopandas.read_file", return_value=self.fields):
                 raster = self.classifier.save(
@@ -207,7 +216,15 @@ class PredictionSaveTests(unittest.TestCase):
                 pd.read_csv(
                     copy, dtype={"field_id": str}, float_precision="round_trip"
                 ),
-                original[["field_id", "class_name", "class"]],
+                original[
+                    [
+                        "field_id",
+                        "class_name",
+                        "class",
+                        "probability",
+                        "prediction_status",
+                    ]
+                ],
             )
         pd.testing.assert_frame_equal(self.table, original)
         self.assertIsNone(fresh._predictions)
@@ -219,7 +236,17 @@ class PredictionSaveTests(unittest.TestCase):
         csv = self.classifier.save(OutputFormat.TABLE, predictions=points)
         pd.testing.assert_frame_equal(
             pd.read_csv(csv, dtype={"field_id": str}, float_precision="round_trip"),
-            original[["field_id", "class_name", "class", "lat", "lon"]],
+            original[
+                [
+                    "field_id",
+                    "class_name",
+                    "class",
+                    "lat",
+                    "lon",
+                    "probability",
+                    "prediction_status",
+                ]
+            ],
         )
         path = self.classifier.save(
             OutputFormat.RASTER,

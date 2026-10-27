@@ -29,7 +29,15 @@ class ExporterFactory:
             ValueError: If the format is unsupported, required columns are missing,
                 or a point raster table is empty.
         """
-        output_format = OutputFormat(output_format)
+        return ExporterFactory._get_exporter(
+            OutputFormat(output_format), use_zonal_spectral, df
+        )
+
+    @staticmethod
+    def _get_exporter(
+        output_format: OutputFormat, use_zonal_spectral: bool, df: pd.DataFrame
+    ) -> BaseExporter:
+        """Select an exporter after public format normalization."""
         required = {"class"}
         if output_format == OutputFormat.VECTOR:
             required.update(("field_id", "class_name"))
@@ -47,20 +55,13 @@ class ExporterFactory:
         if output_format == OutputFormat.TABLE:
             return TableExporter()
 
-        if output_format == OutputFormat.VECTOR:
-            module = import_optional("cropgrm.prediction.exporters.vector", "geo")
-            return module.VectorExporter()
-
-        if output_format == OutputFormat.RASTER:
-            if use_zonal_spectral:
-                module = import_optional(
-                    "cropgrm.prediction.exporters.polygon_raster", "geo"
-                )
-                return module.PolygonRasterExporter()
-            elif not use_zonal_spectral:
-                module = import_optional(
-                    "cropgrm.prediction.exporters.point_raster", "geo"
-                )
-                return module.PointRasterExporter()
-
-        raise ValueError(f"Unsupported export format: {output_format}")
+        module_name, class_name = {
+            OutputFormat.VECTOR: ("vector", "VectorExporter"),
+            OutputFormat.RASTER: (
+                ("polygon_raster", "PolygonRasterExporter")
+                if use_zonal_spectral
+                else ("point_raster", "PointRasterExporter")
+            ),
+        }[output_format]
+        module = import_optional(f"cropgrm.prediction.exporters.{module_name}", "geo")
+        return getattr(module, class_name)()

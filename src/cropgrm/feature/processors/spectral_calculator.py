@@ -16,6 +16,7 @@ from cropgrm.feature.constants import (
     X_VALUES,
 )
 from cropgrm.feature.math.curves import (
+    InsufficientObservationsError,
     double_logistic_function,
     fit_curve,
     sort_extrema_points,
@@ -49,9 +50,9 @@ class SpectralFeatureCalculator:
         self.chunk_size = CHUNK_SIZE
 
         self.pipelines: Dict[str, Callable] = {
-            "mean": self.process_spectral_features_means,
-            "curve": self.process_spectral_features_curve,
-            "extrema": self.process_ndyi_features,
+            "mean": self._process_spectral_features_means,
+            "curve": self._process_spectral_features_curve,
+            "extrema": self._process_ndyi_features,
         }
 
     def _months_for_doy(self, year: int) -> np.ndarray:
@@ -68,17 +69,27 @@ class SpectralFeatureCalculator:
         return np.searchsorted(month_ends, self.x_values.astype(int)) + 1
 
     @staticmethod
-    def _prepare_index_group(group_df, index, precomputed_values):
-        """Select finite index observations and aligned cached values after DOY 90."""
+    def _prepare_index_group(group_df, precomputed_values):
+        """Select finite observations from a prepared group and its required cache."""
+        valid = np.isfinite(precomputed_values)
+        return group_df.filter(pl.Series(valid)), precomputed_values[valid]
+
+    @staticmethod
+    def _prepare_public_index_group(group_df, index, precomputed_values):
+        """Prepare a standalone processor call, retaining aligned cached values."""
         group_df = group_df.filter(pl.col("DOY") >= 90)
-        values = group_df[index].to_numpy().astype(float)
-        valid = np.isfinite(values)
         if precomputed_values is None:
-            values = hampel_filter(values[valid], 3)
+            values = group_df[index].to_numpy().astype(float)
+            valid = np.isfinite(values)
+            precomputed_values = np.full(values.shape, np.nan)
+            precomputed_values[valid] = hampel_filter(values[valid], 3)
         else:
-            valid &= np.isfinite(precomputed_values)
-            values = precomputed_values[valid]
-        return group_df.filter(pl.Series(valid)), values
+            precomputed_values = np.where(
+                np.isfinite(group_df[index].to_numpy().astype(float)),
+                precomputed_values,
+                np.nan,
+            )
+        return group_df, precomputed_values
 
     def process_spectral_features_means(self, group_df, index, precomputed_values=None):
         """Summarize a linearly interpolated spectral time series.
@@ -98,7 +109,14 @@ class SpectralFeatureCalculator:
                 and April-to-October interpolated medians; None if fewer than two
                 finite observations remain after DOY filtering.
         """
-        group_df, y = self._prepare_index_group(group_df, index, precomputed_values)
+        group_df, values = self._prepare_public_index_group(
+            group_df, index, precomputed_values
+        )
+        return self._process_spectral_features_means(group_df, index, values)
+
+    def _process_spectral_features_means(self, group_df, index, precomputed_values):
+        """Calculate interpolation features from a prepared group and cache."""
+        group_df, y = self._prepare_index_group(group_df, precomputed_values)
         if len(group_df) < 2:
             return None
 
@@ -148,16 +166,27 @@ class SpectralFeatureCalculator:
                 decay features, and monthly medians; times are days of year. None if
                 fewer than six finite observations remain or the fit is invalid.
         """
-        group_df, y = self._prepare_index_group(group_df, index, precomputed_values)
-        if len(group_df) < 6:
-            return None
+        group_df, values = self._prepare_public_index_group(
+            group_df, index, precomputed_values
+        )
+        return self._process_spectral_features_curve(group_df, index, bounds, values)
 
+    def _process_spectral_features_curve(
+        self, group_df, index, bounds, precomputed_values
+    ):
+        """Fit a prepared group, leaving insufficient data unclassified."""
+        field_id = group_df["field_id"][0] if len(group_df) else None
+        group_df, y = self._prepare_index_group(group_df, precomputed_values)
         x = group_df["DOY"].to_numpy().astype(float)
 
-        params = fit_curve(x, y, bounds)
-        if params is None or np.isnan(params).any():
+        try:
+            params = fit_curve(x, y, bounds)
+        except InsufficientObservationsError as error:
+            logger.warning("Field %s: %s", field_id, error)
+            return None
+        if params is None or not np.isfinite(params).all():
             warnings.warn(
-                f"The feature calculation failed for {group_df['field_id'][0]}, "
+                f"The feature calculation failed for {field_id}, "
                 "probably due to unsuitable/noisy data.",
                 UserWarning,
                 stacklevel=2,
@@ -241,7 +270,14 @@ class SpectralFeatureCalculator:
             dict[str, object] | None: Field ID, filtered index extrema, and their
                 days of year; None if no finite observations remain after DOY filtering.
         """
-        group_df, y = self._prepare_index_group(group_df, index, precomputed_values)
+        group_df, values = self._prepare_public_index_group(
+            group_df, index, precomputed_values
+        )
+        return self._process_ndyi_features(group_df, index, values)
+
+    def _process_ndyi_features(self, group_df, index, precomputed_values):
+        """Calculate extrema from a prepared group and cache."""
+        group_df, y = self._prepare_index_group(group_df, precomputed_values)
         if len(group_df) == 0:
             return None
         x = group_df["DOY"].to_numpy().astype(float)
@@ -274,7 +310,7 @@ class SpectralFeatureCalculator:
             index (str): Name of the numeric spectral band or index column.
             grouped_data (list[tuple]): Pairs of a polars.DataFrame spatial group
                 and a cache mapping index names to filtered numpy.ndarray values
-                with shape (n,), or None.
+                with shape (n,). The internal cache contains every configured index.
 
         Returns:
             list[dict[str, object] | None]: Processor results in input group order,
@@ -284,13 +320,12 @@ class SpectralFeatureCalculator:
 
         if pipeline_name == "curve":
             return Parallel(n_jobs=self.n_jobs)(
-                delayed(func)(group, index, self.bounds_config[index], cache.get(index))
+                delayed(func)(group, index, self.bounds_config[index], cache[index])
                 for group, cache in grouped_data
             )
 
         return Parallel(n_jobs=self.n_jobs)(
-            delayed(func)(group, index, cache.get(index))
-            for group, cache in grouped_data
+            delayed(func)(group, index, cache[index]) for group, cache in grouped_data
         )
 
     def calculate_spectral_features(self, df_prepared: pl.DataFrame) -> pl.DataFrame:
@@ -304,7 +339,8 @@ class SpectralFeatureCalculator:
         Returns:
             polars.DataFrame: Features joined by field_id, with available spatial
                 coordinates and nulls for missing feature results. Curve failures are
-                logged; features with no successful results have no output columns.
+                logged. Built-in feature columns are always present. Each curve index
+                includes fit_status: success, insufficient_observations, or fit_failed.
         """
         df = add_indices(df_prepared)
 
@@ -312,35 +348,51 @@ class SpectralFeatureCalculator:
         mapping_df = df.select(id_columns).unique()
 
         grouped_data = []
+        group_ids = []
         for _, group in df.group_by("field_id"):
+            group_ids.append(group["field_id"][0])
             filtered_group = group.filter(pl.col("DOY") >= 90)
-            if len(filtered_group) == 0:
-                continue
-
             hampel_cache = {}
             for index in self.feature_config.keys():
-                if index in filtered_group.columns:
-                    values = filtered_group[index].to_numpy().astype(float)
-                    valid = np.isfinite(values)
-                    filtered_values = np.full(values.shape, np.nan)
-                    filtered_values[valid] = hampel_filter(values[valid], 3)
-                    hampel_cache[index] = filtered_values
+                values = filtered_group[index].to_numpy().astype(float)
+                valid = np.isfinite(values)
+                filtered_values = np.full(values.shape, np.nan)
+                filtered_values[valid] = hampel_filter(values[valid], 3)
+                hampel_cache[index] = filtered_values
 
             grouped_data.append((filtered_group, hampel_cache))
 
         all_field_ids = df["field_id"].unique().to_frame()
         all_features = []
+        feature_columns = []
 
         for index, cfg in self.feature_config.items():
             pipeline = cfg["pipeline"]
 
             results = self._run_pipeline(pipeline, index, grouped_data)
             successful = [r for r in results if r is not None]
-            if pipeline == "curve" and len(successful) < len(results):
-                too_short = sum(
-                    group.filter(pl.col(index).is_finite()).height < 6
-                    for group, _ in grouped_data
+            if pipeline == "curve":
+                statuses = []
+                for (_, cache), result in zip(grouped_data, results):
+                    status = "success"
+                    if result is None:
+                        status = (
+                            "insufficient_observations"
+                            if np.isfinite(cache[index]).sum() < 6
+                            else "fit_failed"
+                        )
+                    statuses.append(status)
+                all_features.append(
+                    pl.DataFrame(
+                        {
+                            "field_id": group_ids,
+                            f"{index}_fit_status": statuses,
+                        },
+                        schema_overrides={"field_id": df.schema["field_id"]},
+                    )
                 )
+            if pipeline == "curve" and len(successful) < len(results):
+                too_short = statuses.count("insufficient_observations")
                 failed = len(results) - len(successful) - too_short
                 logger.warning(
                     "Double-logistic features unavailable for index '%s': "
@@ -356,9 +408,52 @@ class SpectralFeatureCalculator:
             if results:
                 all_features.append(pl.DataFrame(results))
 
+            suffixes = ["min", "max", "doy_min", "doy_max"]
+            if pipeline == "curve":
+                suffixes = [
+                    "wNDVI",
+                    "mNDVI",
+                    "S",
+                    "A",
+                    "mS",
+                    "mA",
+                    "doy_max",
+                    "max",
+                    "start_of_growth",
+                    "end_of_growth",
+                    "start_of_decay",
+                    "end_of_decay",
+                    "max_growth",
+                    "mean_growth",
+                    "min_growth",
+                    "max_decay",
+                    "min_decay",
+                    "mean_decay",
+                ]
+            if pipeline in ("mean", "curve", "extrema"):
+                columns = [f"{index}_{suffix}" for suffix in suffixes]
+                if pipeline in ("mean", "curve"):
+                    columns += [f"median_{index}_fitted_{m}" for m in range(4, 11)]
+                feature_columns.extend(columns)
+                available = set().union(*(result.keys() for result in results))
+                missing = [name for name in columns if name not in available]
+                if missing:
+                    all_features.append(
+                        all_field_ids.with_columns(
+                            pl.lit(None, dtype=pl.Float64).alias(name)
+                            for name in missing
+                        )
+                    )
+
         merged = all_field_ids
         for feat_df in all_features:
             merged = merged.join(feat_df, on="field_id", how="left")
 
         merged = merged.join(mapping_df, on="field_id", how="left")
-        return merged
+        merged = merged.with_columns(
+            pl.col(name).cast(pl.Float64) for name in feature_columns
+        )
+        coordinates = [name for name in id_columns if name != "field_id"]
+        return merged.select(
+            ["field_id", *sorted(set(merged.columns) - set(id_columns)), *coordinates]
+        )

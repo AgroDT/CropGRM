@@ -4,16 +4,90 @@ from unittest.mock import Mock, patch
 import numpy as np
 import polars as pl
 
-from cropgrm.feature.math.curves import double_logistic_function
+from cropgrm.feature.math.curves import (
+    double_logistic_function,
+    fit_curve,
+)
 from cropgrm.feature.math.derivatives import get_fourth_derivative
 from cropgrm.feature.processors.add_indices import add_indices
 from cropgrm.feature.processors.meteo_calculator import MeteoFeatureCalculator
 from cropgrm.feature.processors.spectral_calculator import (
     SpectralFeatureCalculator,
 )
+from cropgrm.prediction.processors.make_predictions import CropPredictor
 
 
 class FeatureCalculatorTests(unittest.TestCase):
+    def test_five_observations_produce_class_zero_with_bundled_model(self):
+        observations = self.curve_input([90, 110, 130, 150, 170]).with_columns(
+            pl.lit(0.3).alias("swir2")
+        )
+        spectral = SpectralFeatureCalculator().calculate_spectral_features(observations)
+        weather = MeteoFeatureCalculator().calculate_meteo_features(
+            pl.DataFrame(
+                {
+                    "field_id": [7] * 7,
+                    "month": list(range(4, 11)),
+                    "temperature": [280.0] * 7,
+                    "precipitation": [0.001] * 7,
+                }
+            )
+        )
+        features = spectral.join(weather, on="field_id").to_pandas()
+        with patch(
+            "catboost.CatBoostClassifier.predict_proba",
+            side_effect=AssertionError("Insufficient observations must skip inference"),
+        ):
+            result = CropPredictor().predict(features)
+        self.assertEqual(result["class"].tolist(), [0])
+        self.assertTrue(result["probability"].isna().all())
+        self.assertEqual(
+            result["prediction_status"].tolist(), ["insufficient_observations"]
+        )
+
+    def test_curve_schema_and_failure_status_do_not_depend_on_other_fields(self):
+        calculator = SpectralFeatureCalculator()
+        calculator.feature_config = {"ndmi": {"pipeline": "curve"}}
+        short = self.curve_input([90, 110, 130, 150, 170])
+        complete = self.curve_input([90, 110, 130, 150, 170, 190]).with_columns(
+            pl.lit(8).cast(short.schema["field_id"]).alias("field_id")
+        )
+        early = short.with_columns(
+            pl.lit(9).cast(short.schema["field_id"]).alias("field_id"),
+            pl.col("DOY") - 90,
+        )
+        alone = calculator.calculate_spectral_features(short)
+        params = np.array([0.1, 0.9, 120.0, 260.0, 0.1, 0.1])
+        with patch(
+            "cropgrm.feature.processors.spectral_calculator.fit_curve",
+            side_effect=lambda days, values, bounds: (
+                fit_curve(days, values, bounds) if len(days) < 6 else params
+            ),
+        ):
+            together = calculator.calculate_spectral_features(
+                pl.concat([short, complete, early])
+            )
+        self.assertEqual(alone.schema, together.schema)
+        self.assertTrue(alone.equals(together.filter(pl.col("field_id") == 7)))
+        self.assertEqual(
+            together.sort("field_id")["ndmi_fit_status"].to_list(),
+            ["insufficient_observations", "success", "insufficient_observations"],
+        )
+
+    def test_absent_weather_months_have_null_columns(self):
+        data = pl.DataFrame(
+            {
+                "field_id": [7],
+                "month": [4],
+                "temperature": [280.0],
+                "precipitation": [0.001],
+            }
+        )
+        result = MeteoFeatureCalculator().calculate_meteo_features(data)
+        for prefix in ("median_t", "sum_t", "median_prec", "sum_prec"):
+            for month in range(5, 11):
+                self.assertIsNone(result[f"{prefix}_{month}"][0])
+
     def test_fourth_derivative_is_cached_and_preserves_the_seasonal_formula(self):
         import sympy as sp
 
@@ -68,7 +142,7 @@ class FeatureCalculatorTests(unittest.TestCase):
                 "ndmi": [0.1, None, 0.2, 0.3, 0.4, 0.5],
             }
         )
-        with patch("cropgrm.feature.processors.spectral_calculator.fit_curve") as fit:
+        with patch("cropgrm.feature.math.curves.curve_fit") as fit:
             result = calculator.process_spectral_features_curve(
                 group, "ndmi", calculator.bounds_config["ndmi"]
             )
@@ -128,16 +202,16 @@ class FeatureCalculatorTests(unittest.TestCase):
         data = self.curve_input([50, 90, 100, 110, 120, 130])
         module = "cropgrm.feature.processors.spectral_calculator"
         with (
-            patch(f"{module}.fit_curve") as fit,
+            patch("cropgrm.feature.math.curves.curve_fit") as fit,
             self.assertLogs(module, level="WARNING") as logs,
         ):
             result = calculator.calculate_spectral_features(data)
         fit.assert_not_called()
         self.assertEqual(result["field_id"].to_list(), [7])
-        self.assertEqual(result.columns, ["field_id"])
-        self.assertIn("index 'ndmi'", logs.output[0])
-        self.assertIn("1 groups have fewer than six observations", logs.output[0])
-        self.assertIn("0 curve fits failed", logs.output[0])
+        self.assertIsNone(result["ndmi_S"][0])
+        self.assertIn("index 'ndmi'", logs.output[-1])
+        self.assertIn("1 groups have fewer than six observations", logs.output[-1])
+        self.assertIn("0 curve fits failed", logs.output[-1])
 
     def test_failed_curve_fits_log_reason_and_preserve_spatial_rows(self):
         module = "cropgrm.feature.processors.spectral_calculator"
@@ -154,11 +228,11 @@ class FeatureCalculatorTests(unittest.TestCase):
                     result = calculator.calculate_spectral_features(data)
                 fit.assert_called_once()
                 self.assertEqual(result["field_id"].to_list(), [7])
-                self.assertEqual(result.columns, ["field_id"])
+                self.assertIsNone(result["ndmi_S"][0])
                 self.assertIn(
-                    "0 groups have fewer than six observations", logs.output[0]
+                    "0 groups have fewer than six observations", logs.output[-1]
                 )
-                self.assertIn("1 curve fits failed", logs.output[0])
+                self.assertIn("1 curve fits failed", logs.output[-1])
                 self.assertTrue(data.equals(original))
 
     def test_short_series_does_not_discard_successful_field_features(self):
@@ -172,11 +246,16 @@ class FeatureCalculatorTests(unittest.TestCase):
         module = "cropgrm.feature.processors.spectral_calculator"
         parameters = np.array([0.1, 0.9, 120.0, 260.0, 0.1, 0.1])
         with (
-            patch(f"{module}.fit_curve", return_value=parameters) as fit,
+            patch(
+                f"{module}.fit_curve",
+                side_effect=lambda days, values, bounds: (
+                    fit_curve(days, values, bounds) if len(days) < 6 else parameters
+                ),
+            ) as fit,
             self.assertLogs(module, level="WARNING"),
         ):
             result = calculator.calculate_spectral_features(data)
-        fit.assert_called_once()
+        self.assertEqual(fit.call_count, 2)
         self.assertEqual(set(result["field_id"]), {7, 8})
         self.assertIsNone(result.filter(pl.col("field_id") == 7)["ndmi_S"][0])
         self.assertEqual(result.filter(pl.col("field_id") == 8)["ndmi_S"][0], 120.0)

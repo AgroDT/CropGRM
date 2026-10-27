@@ -4,7 +4,7 @@ import rioxarray  # noqa: F401
 import xarray as xr
 from pyproj import Transformer
 
-from cropgrm.prediction.exporters.base import BaseExporter
+from cropgrm.prediction.exporters.base import BaseExporter, validate_pixel_size
 
 
 class PointRasterExporter(BaseExporter):
@@ -34,8 +34,22 @@ class PointRasterExporter(BaseExporter):
             nodata (int): Fill value for empty cells, representable as int16.
             **kwargs (object): Additional export options, ignored by this exporter.
         """
-        if not np.isfinite(pixel_size) or pixel_size <= 0:
-            raise ValueError("pixel_size must be finite and positive.")
+        validate_pixel_size(pixel_size)
+        self._export_prepared(
+            df, output_prefix, input_epsg_code, output_epsg_code, pixel_size, nodata
+        )
+
+    def _export_prepared(
+        self,
+        df,
+        output_prefix,
+        input_epsg_code="EPSG:4326",
+        output_epsg_code=None,
+        pixel_size=30.0,
+        nodata=-9999,
+        **kwargs,
+    ):
+        """Write a point raster using validated export options."""
         lons = df["lon"].to_numpy()
         lats = df["lat"].to_numpy()
         if output_epsg_code and input_epsg_code != output_epsg_code:

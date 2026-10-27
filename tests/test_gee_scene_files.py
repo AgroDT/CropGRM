@@ -50,13 +50,15 @@ class GEESceneFileTests(unittest.TestCase):
 
                 collection.aggregate_array.side_effect = aggregate
 
-                def download(image, geometry, path, scale):
+                def download(image, geometry, path, **options):
                     path.write_bytes(b"downloaded")
 
                 pipeline.raster_exporter.to_geotiff.side_effect = download
                 folder = Path(directory) / "2024"
+                geometry = MagicMock()
+                geometry.getInfo.return_value = {"type": "Point", "coordinates": [1, 2]}
                 with patch("cropgrm.gee_extractor.gee_pipeline.ee.Image") as image:
-                    first = getattr(pipeline, method)(MagicMock(), "fields", folder)
+                    first = getattr(pipeline, method)(geometry, "fields", folder)
                     self.assertEqual(len(set(first)), 2)
                     self.assertEqual(pipeline.raster_exporter.to_geotiff.call_count, 2)
                     first[0].write_bytes(b"old contents")
@@ -64,12 +66,12 @@ class GEESceneFileTests(unittest.TestCase):
                     image.reset_mock()
                     scene_ids.reverse()
                     timestamps.reverse()
-                    second = getattr(pipeline, method)(MagicMock(), "fields", folder)
+                    second = getattr(pipeline, method)(geometry, "fields", folder)
                     pipeline.raster_exporter.to_geotiff.assert_not_called()
                     image.assert_not_called()
                     self.assertEqual(first[0].read_bytes(), b"old contents")
                     first[1].unlink()
-                    third = getattr(pipeline, method)(MagicMock(), "fields", folder)
+                    third = getattr(pipeline, method)(geometry, "fields", folder)
                     pipeline.raster_exporter.to_geotiff.assert_called_once()
                     self.assertEqual(
                         pipeline.raster_exporter.to_geotiff.call_args.args[2], first[1]
@@ -83,6 +85,23 @@ class GEESceneFileTests(unittest.TestCase):
                     self.assertTrue(
                         all(path.name.endswith("_2024-04-01.tif") for path in first)
                     )
+                geometry.getInfo.return_value["coordinates"] = [3, 4]
+                pipeline.raster_exporter.to_geotiff.reset_mock()
+                with patch("cropgrm.gee_extractor.gee_pipeline.ee.Image"):
+                    changed = getattr(pipeline, method)(geometry, "fields", folder)
+                self.assertTrue(set(first).isdisjoint(changed))
+                self.assertEqual(pipeline.raster_exporter.to_geotiff.call_count, 2)
+                self.assertEqual(first[0].read_bytes(), b"old contents")
+
+    def test_cache_identity_includes_export_parameters(self):
+        geometry = MagicMock()
+        geometry.getInfo.return_value = {"type": "Point", "coordinates": [1, 2]}
+        key = GEEDownloadingDataPipeline._scene_cache_key
+        self.assertNotEqual(key(geometry, scale=30), key(geometry, scale=60))
+        self.assertEqual(
+            key(geometry, scale=30, crs="EPSG:4326"),
+            key(geometry, crs="EPSG:4326", scale=30),
+        )
 
     def test_run_passes_year_directories_and_exact_scene_lists(self):
         pipeline = self.make_pipeline()

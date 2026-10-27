@@ -11,6 +11,42 @@ from cropgrm.prediction.processors.make_predictions import CropPredictor
 
 
 class PredictionProbabilityTests(unittest.TestCase):
+    def test_failed_fit_rows_are_preserved_and_never_sent_to_model(self):
+        data = pd.DataFrame(
+            {
+                "feature": [0.1, 0.2, np.nan, 0.4],
+                "ndmi_fit_status": ["success", "success", "fit_failed", "success"],
+                "wrdvi_fit_status": [
+                    "success",
+                    "fit_failed",
+                    "success",
+                    "insufficient_observations",
+                ],
+            },
+            index=[9, 9, 3, 4],
+        )
+        model = Mock(feature_names_=["feature"], classes_=np.array([1, 7]))
+        model.predict_proba.return_value = np.array([[0.8, 0.2]])
+        for frame in (data, data.iloc[1:]):
+            with self.subTest(all_failed=len(frame) == 3):
+                model.predict_proba.reset_mock()
+                with patch.object(CropPredictor, "load_model", return_value=model):
+                    result = CropPredictor().predict(frame)
+                if len(frame) == 4:
+                    pd.testing.assert_frame_equal(
+                        model.predict_proba.call_args.args[0],
+                        frame.iloc[:1][["feature"]],
+                    )
+                    self.assertEqual(result["class"].tolist(), [1, 0, 0, 0])
+                else:
+                    model.predict_proba.assert_not_called()
+                self.assertTrue(result.iloc[-3:]["probability"].isna().all())
+                self.assertEqual(
+                    result.iloc[-3:]["prediction_status"].tolist(),
+                    ["fit_failed", "fit_failed", "insufficient_observations"],
+                )
+                pd.testing.assert_frame_equal(result[frame.columns], frame)
+
     def test_input_result_and_cache_are_independent(self):
         data = pd.DataFrame({"field_id": ["001", "002"], "feature": [0.2, 0.8]})
         original = data.copy(deep=True)

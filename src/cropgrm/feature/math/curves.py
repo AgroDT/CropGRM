@@ -4,6 +4,10 @@ import numpy as np
 from scipy.optimize import OptimizeWarning, curve_fit
 
 
+class InsufficientObservationsError(ValueError):
+    """Raised when fewer than six finite observations are available for fitting."""
+
+
 def double_logistic_function(t, wNDVI, mNDVI, S, A, mS, mA):
     """Evaluate a double logistic seasonal curve.
 
@@ -37,8 +41,20 @@ def fit_curve(t, ndvi_observed, bounds):
 
     Returns:
         numpy.ndarray | None: Six fitted parameters in bounds order, or None if fitting
-            fails.
+            fails or returns nonfinite parameters.
+
+    Raises:
+        InsufficientObservationsError: If fewer than six finite observations remain.
     """
+    t = np.asarray(t)
+    ndvi_observed = np.asarray(ndvi_observed)
+    valid = np.isfinite(t) & np.isfinite(ndvi_observed)
+    t, ndvi_observed = t[valid], ndvi_observed[valid]
+    if len(t) < 6:
+        raise InsufficientObservationsError(
+            "Double-logistic fitting requires at least six finite observations; "
+            f"received {len(t)}."
+        )
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", category=OptimizeWarning)
         warnings.simplefilter("ignore", category=RuntimeWarning)
@@ -53,7 +69,7 @@ def fit_curve(t, ndvi_observed, bounds):
                 bounds=bounds,
                 maxfev=5000,
             )
-            return params
+            return params if np.isfinite(params).all() else None
         except RuntimeError:
             return None
 

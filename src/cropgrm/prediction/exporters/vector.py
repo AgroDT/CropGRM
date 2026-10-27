@@ -5,7 +5,7 @@ from typing import Union
 import geopandas as gpd
 import pandas as pd
 
-from cropgrm.prediction.exporters.base import BaseExporter
+from cropgrm.prediction.exporters.base import BaseExporter, validate_geometry_path
 
 logger = logging.getLogger(__name__)
 
@@ -33,9 +33,11 @@ class VectorExporter(BaseExporter):
         Raises:
             ValueError: If fields_geometry_path is missing.
         """
-        if not fields_geometry_path:
-            raise ValueError("For vector exporting 'fields_geometry_path' required.")
+        validate_geometry_path(fields_geometry_path)
+        self._export_prepared(df, output_prefix, fields_geometry_path)
 
+    def _export_prepared(self, df, output_prefix, fields_geometry_path, **kwargs):
+        """Join and write fields using validated export options."""
         gdf = gpd.read_file(fields_geometry_path)
         if "field_id" not in gdf.columns or "geometry" not in gdf.columns:
             raise ValueError("Field geometry requires field_id and geometry columns.")

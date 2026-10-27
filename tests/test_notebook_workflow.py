@@ -55,7 +55,8 @@ class NotebookWorkflowTests(unittest.TestCase):
             self.assertTrue({"class", "class_name"}.issubset(predictions.columns))
             self.assertTrue(predictions["class"].between(0, 16).all())
             self.assertEqual(
-                list(predictions.columns), ["field_id", "class_name", "class"]
+                list(predictions.columns),
+                ["field_id", "class_name", "class", "probability", "prediction_status"],
             )
 
             classifier.model_type = ModelType.SMALL
@@ -148,7 +149,10 @@ class NotebookScenarioTests(unittest.TestCase):
         self.assertEqual(set(features["field_id"]), expected_ids)
         self.assertEqual(set(features["field_id"]), set(result["field_id"]))
         pd.testing.assert_frame_equal(
-            saved, result[["field_id", "class_name", "class"]]
+            saved,
+            result[
+                ["field_id", "class_name", "class", "probability", "prediction_status"]
+            ],
         )
         pd.testing.assert_frame_equal(classifier._predictions, result)
 
@@ -189,7 +193,16 @@ class NotebookScenarioTests(unittest.TestCase):
                 classifier.save(output_prefix=prefix)
                 saved = pd.read_csv(prefix.with_suffix(".csv"), dtype={"field_id": str})
                 pd.testing.assert_frame_equal(
-                    saved, predicted[["field_id", "class_name", "class"]]
+                    saved,
+                    predicted[
+                        [
+                            "field_id",
+                            "class_name",
+                            "class",
+                            "probability",
+                            "prediction_status",
+                        ]
+                    ],
                 )
                 results.append(saved)
             build.assert_called_once_with(
@@ -277,7 +290,17 @@ class NotebookScenarioTests(unittest.TestCase):
             float_precision="round_trip",
         )
         pd.testing.assert_frame_equal(
-            saved, predictions[["class_name", "class", "lat", "lon"]]
+            saved,
+            predictions[
+                [
+                    "class_name",
+                    "class",
+                    "lat",
+                    "lon",
+                    "probability",
+                    "prediction_status",
+                ]
+            ],
         )
         with (
             patch(
