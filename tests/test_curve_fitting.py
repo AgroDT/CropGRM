@@ -1,0 +1,66 @@
+import unittest
+from unittest.mock import patch
+
+import numpy as np
+
+from cropgrm.feature.math.curves import InsufficientObservationsError, fit_curve
+
+
+class CurveFittingTests(unittest.TestCase):
+    def setUp(self):
+        self.days = np.array([90, 120, 150, 180, 210, 240], dtype=float)
+        self.values = np.array([-0.3, 0.1, 0.4, 1.2, 0.5, 0.2])
+        self.bounds = ([-0.2, -0.2, 0, 0, 0, 0], [1, 1, 365, 365, 1, 1])
+
+    def test_initial_guess_is_bounded_without_changing_observations(self):
+        expected = np.array([0.1, 0.8, 120, 260, 0.1, 0.1])
+        original = self.values.copy()
+        with patch(
+            "cropgrm.feature.math.curves.curve_fit",
+            return_value=(expected, None),
+        ) as optimize:
+            result = fit_curve(self.days, self.values, self.bounds)
+        self.assertIs(result, expected)
+        np.testing.assert_array_equal(
+            optimize.call_args.kwargs["p0"], [-0.2, 1, 0, 365, 0.1, 0.1]
+        )
+        np.testing.assert_array_equal(optimize.call_args.args[2], original)
+        np.testing.assert_array_equal(self.values, original)
+
+    def test_nonconvergence_raises_runtime_error(self):
+        with (
+            patch(
+                "cropgrm.feature.math.curves.curve_fit",
+                side_effect=RuntimeError("Optimal parameters not found"),
+            ),
+            self.assertRaisesRegex(RuntimeError, "Optimal parameters not found"),
+        ):
+            fit_curve(self.days, self.values, self.bounds)
+
+    def test_nonfinite_parameters_are_returned_for_caller_validation(self):
+        for value in (np.nan, np.inf):
+            params = np.full(6, value)
+            with (
+                self.subTest(value=value),
+                patch(
+                    "cropgrm.feature.math.curves.curve_fit", return_value=(params, None)
+                ),
+            ):
+                self.assertIs(fit_curve(self.days, self.values, self.bounds), params)
+
+    def test_invalid_bounds_are_not_hidden(self):
+        bounds = ([1, -0.2, 0, 0, 0, 0], [-0.2, 1, 365, 365, 1, 1])
+        with self.assertRaises(ValueError):
+            fit_curve(self.days, self.values, bounds)
+
+    def test_insufficient_finite_observations_raise_before_optimization(self):
+        for values in (self.values[:5], np.array([0.1, np.nan, 0.2, 0.3, 0.4, 0.5])):
+            with (
+                self.subTest(values=values),
+                patch("cropgrm.feature.math.curves.curve_fit") as optimize,
+            ):
+                with self.assertRaisesRegex(
+                    InsufficientObservationsError, "received 5"
+                ):
+                    fit_curve(self.days[: len(values)], values, self.bounds)
+                optimize.assert_not_called()

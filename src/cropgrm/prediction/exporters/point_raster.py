@@ -1,0 +1,90 @@
+import numpy as np
+import pandas as pd
+import rioxarray  # noqa: F401
+import xarray as xr
+from pyproj import Transformer
+
+from cropgrm.prediction.exporters.base import BaseExporter, validate_pixel_size
+
+
+class PointRasterExporter(BaseExporter):
+    """Raster creation from pixel data (lat/lon)."""
+
+    def export(
+        self,
+        df: pd.DataFrame,
+        output_prefix: str,
+        input_epsg_code: str = "EPSG:4326",
+        output_epsg_code: str = None,
+        pixel_size: float = 30.0,
+        nodata: int = -9999,
+        **kwargs,
+    ) -> None:
+        """Write pixel class predictions to a GeoTIFF grid.
+
+        Args:
+            df (pandas.DataFrame): Nonempty table with lon, lat, and class.
+            output_prefix (str | Path): Destination prefix; .tif is appended.
+            input_epsg_code (str): CRS identifier of the input lon and lat coordinates.
+            output_epsg_code (str | None): CRS assigned to the new raster; a nonempty
+                value is required. A value differing from input_epsg_code also triggers
+                reprojection.
+            pixel_size (float): Finite positive spacing in output CRS units: metres
+                for a metric CRS and degrees for a geographic CRS.
+            nodata (int): Fill value for empty cells, representable as int16.
+            **kwargs (object): Additional export options, ignored by this exporter.
+        """
+        validate_pixel_size(pixel_size)
+        self._export_prepared(
+            df, output_prefix, input_epsg_code, output_epsg_code, pixel_size, nodata
+        )
+
+    def _export_prepared(
+        self,
+        df,
+        output_prefix,
+        input_epsg_code="EPSG:4326",
+        output_epsg_code=None,
+        pixel_size=30.0,
+        nodata=-9999,
+        **kwargs,
+    ):
+        """Write a point raster using validated export options."""
+        lons = df["lon"].to_numpy()
+        lats = df["lat"].to_numpy()
+        if output_epsg_code and input_epsg_code != output_epsg_code:
+            transformer = Transformer.from_crs(
+                input_epsg_code, output_epsg_code, always_xy=True
+            )
+            lons, lats = transformer.transform(lons, lats)
+
+        min_lon, min_lat = lons.min(), lats.min()
+        max_lon, max_lat = lons.max(), lats.max()
+
+        nrows = int(np.ceil((max_lat - min_lat) / pixel_size)) + 1
+        ncols = int(np.ceil((max_lon - min_lon) / pixel_size)) + 1
+
+        raster_array = np.full((nrows, ncols), nodata, dtype=np.int16)
+
+        row_indices = ((lats - min_lat) / pixel_size).astype(int)
+        col_indices = ((lons - min_lon) / pixel_size).astype(int)
+
+        raster_array[row_indices, col_indices] = df["class"].values
+
+        latitudes = np.arange(min_lat, min_lat + pixel_size * nrows, pixel_size)[:nrows]
+        longitudes = np.arange(min_lon, min_lon + pixel_size * ncols, pixel_size)[
+            :ncols
+        ]
+
+        data_array = xr.DataArray(
+            raster_array,
+            dims=("y", "x"),
+            coords={
+                "y": latitudes,
+                "x": longitudes,
+            },
+        )
+
+        data_array = data_array.rio.write_crs(output_epsg_code)
+        data_array = data_array.rio.write_nodata(nodata)
+        data_array.rio.to_raster(f"{output_prefix}.tif")
