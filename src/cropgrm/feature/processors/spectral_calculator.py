@@ -184,7 +184,7 @@ class SpectralFeatureCalculator:
         except InsufficientObservationsError as error:
             logger.warning("Field %s: %s", field_id, error)
             return None
-        if params is None or not np.isfinite(params).all():
+        except RuntimeError as error:
             warnings.warn(
                 f"The feature calculation failed for {field_id}, "
                 "probably due to unsuitable/noisy data.",
