@@ -52,8 +52,9 @@ class CropPredictor:
 
         Args:
             df (pandas.DataFrame): Input table containing every feature named by the
-                selected model. Optional ndmi_fit_status and wrdvi_fit_status columns
-                must both be present when either is supplied; only success is eligible.
+                selected model. If any fit-status columns are supplied, statuses are
+                required only for indices used by the model; only success is eligible.
+                Unused index statuses are ignored.
             model_type (ModelType | str): Model variant or its configured string value.
             threshold (float): Required lower bound for the maximum class probability;
                 equality is rejected.
@@ -65,19 +66,45 @@ class CropPredictor:
                 for skipped fits. prediction_status records the rejection reason.
 
         Raises:
-            ValueError: If model_type is unsupported or required model features are
-                missing, for example because double-logistic fitting failed.
+            ValueError: If model_type is unsupported, model feature names are
+                unavailable, required input columns are missing, or required fit
+                statuses are invalid.
             FileNotFoundError: If the selected model file is missing.
         """
         model = self.load_model(model_type)
-        fit_columns = ["ndmi_fit_status", "wrdvi_fit_status"]
-        has_fit_status = any(name in df.columns for name in fit_columns)
+        feature_names = getattr(model, "feature_names_", None)
+        if (
+            not isinstance(feature_names, (list, tuple))
+            or not feature_names
+            or any(not isinstance(name, str) or not name for name in feature_names)
+        ):
+            raise ValueError("Model input feature names are unavailable or invalid.")
+        missing = [name for name in feature_names if name not in df.columns]
+        if missing:
+            raise ValueError(
+                f"Missing required model features: {', '.join(missing)}. "
+                "Check feature preparation and input data. Double-logistic features "
+                "may be unavailable if fewer than six observations remain after "
+                "DOY >= 90 filtering or fitting fails on noisy data."
+            )
+        fit_columns = [
+            f"{index}_fit_status"
+            for index in ("ndmi", "wrdvi")
+            if any(
+                name.startswith((f"{index}_", f"median_{index}_fitted_"))
+                for name in feature_names
+            )
+        ]
+        has_fit_status = any(
+            f"{index}_fit_status" in df.columns for index in ("ndmi", "wrdvi")
+        )
         eligible = np.ones(len(df), dtype=bool)
         statuses = np.full(len(df), "predicted", dtype=object)
-        if has_fit_status:
-            if not all(name in df.columns for name in fit_columns):
+        if has_fit_status and fit_columns:
+            missing_statuses = [name for name in fit_columns if name not in df.columns]
+            if missing_statuses:
                 raise ValueError(
-                    "Both ndmi_fit_status and wrdvi_fit_status are required."
+                    f"Missing required curve fit statuses: {', '.join(missing_statuses)}."
                 )
             fits = df[fit_columns]
             if (
@@ -91,21 +118,11 @@ class CropPredictor:
             statuses[fits.eq("insufficient_observations").any(axis=1).to_numpy()] = (
                 "insufficient_observations"
             )
-        missing = [name for name in model.feature_names_ if name not in df.columns]
-        if missing:
-            raise ValueError(
-                f"Missing required model features: {', '.join(missing)}. "
-                "Check feature preparation and input data. Double-logistic features "
-                "may be unavailable if fewer than six observations remain after "
-                "DOY >= 90 filtering or fitting fails on noisy data."
-            )
         df_result = df.copy()
         max_probabilities = np.full(len(df), np.nan)
         classes = np.zeros(len(df), dtype=int)
         if eligible.any():
-            probabilities = model.predict_proba(
-                df_result.loc[eligible, model.feature_names_]
-            )
+            probabilities = model.predict_proba(df_result.loc[eligible, feature_names])
             maxima = np.max(probabilities, axis=1)
             predicted_classes = np.asarray(model.classes_)[
                 np.argmax(probabilities, axis=1)

@@ -182,8 +182,8 @@ class CropClassifier:
 
         Returns:
             pandas.DataFrame: Input columns, classes, probability, and prediction_status.
-                Failed ndmi/wrdvi fits are skipped with class 0 and NaN probability
-                when the input contains both index fit_status columns.
+                Failed fits for indices used by the model are skipped with class 0
+                and NaN probability when fit_status columns are supplied.
 
         Raises:
             TypeError: If data is not a pandas DataFrame.
